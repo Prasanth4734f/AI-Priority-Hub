@@ -241,6 +241,23 @@
               <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
                 ✍️ Enter the physical location / landmark manually so municipal teams know the exact address.
               </div>
+
+              <!-- Location-Aware Existing Complaints / Avoid Duplicates Panel -->
+              <div id="locationDuplicatesPanel" class="location-duplicates-panel" style="display: none;">
+                <div class="location-duplicates-header">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.15rem;">📍</span>
+                    <div>
+                      <strong style="color: #92400e; font-size: 0.86rem;">Existing Active Complaints at this Location:</strong>
+                      <div style="font-size: 0.75rem; color: #78350f;">Check if your defect is already being resolved by municipal teams before filing:</div>
+                    </div>
+                  </div>
+                  <span class="location-dup-count-badge" id="locationDupCountBadge">0 Found</span>
+                </div>
+                <div id="locationDuplicatesList" class="location-duplicates-list">
+                  <!-- Dynamically populated with active complaints at this location -->
+                </div>
+              </div>
             </div>
 
             <!-- Verified Live Evidence Capture -->
@@ -346,6 +363,9 @@
 
           <!-- Quick Action Buttons -->
           <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <button type="button" id="mapScanDuplicatesBtn" class="btn btn-secondary btn-sm" title="Scan your neighborhood for active reports to avoid duplicate filing" style="background: #fffbeb; border-color: #fde68a; color: #92400e; font-weight: 700;">
+              🛡️ Check My Area (Avoid Duplicates)
+            </button>
             <button type="button" id="mapLocateMeBtn" class="btn btn-secondary btn-sm" title="Center on your current GPS location">
               📍 Locate Me
             </button>
@@ -375,6 +395,7 @@
             <span class="gis-group-label">OVERLAY:</span>
             <div class="btn-group-toggle" id="mapLayerToggleGroup">
               <button type="button" class="gis-toggle-btn active" data-layer="pins">📌 Incident Pins</button>
+              <button type="button" class="gis-toggle-btn" data-layer="duplicates" title="Highlight active reports at locations so citizens can see and avoid duplicates" style="color: #d97706; font-weight: 800;">🛡️ Avoid Duplicates</button>
               <button type="button" class="gis-toggle-btn" data-layer="heatmap">🌡️ Thermal Heatmap</button>
               <button type="button" class="gis-toggle-btn" data-layer="chronic">⚠️ Chronic Zones</button>
               <button type="button" class="gis-toggle-btn" data-layer="all">🌐 All Layers</button>

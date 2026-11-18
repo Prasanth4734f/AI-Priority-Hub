@@ -241,6 +241,100 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindTabEvents();
   setRole(currentRole, true);
 
+
+  // ==========================================================================
+  // LOCATION-AWARE DUPLICATE AVOIDANCE ENGINE (Check Before Filing)
+  // ==========================================================================
+  let locDupDebounceTimer = null;
+
+  async function checkLocationDuplicates(locText, lat = null, lng = null) {
+    const panel = document.getElementById("locationDuplicatesPanel");
+    const list = document.getElementById("locationDuplicatesList");
+    const badge = document.getElementById("locationDupCountBadge");
+    if (!panel || !list) return;
+
+    const cleanQuery = (locText || "").toLowerCase().trim();
+    if (cleanQuery.length < 3 && (!lat || !lng)) {
+      panel.style.display = "none";
+      return;
+    }
+
+    try {
+      const all = await api.getAllComplaints();
+      const queryTokens = cleanQuery.match(/\w{3,}/g) || [];
+      const activeStatuses = ["pending review", "submitted", "assigned", "in progress"];
+
+      const matches = all.filter(c => {
+        const s = (c.status || "").toLowerCase();
+        if (!activeStatuses.some(st => s.includes(st))) return false;
+
+        // 1. Distance check if GPS coordinates available (within 700m)
+        if (lat && lng && c.lat && c.lng && !isNaN(c.lat) && !isNaN(c.lng)) {
+          const d = getHaversineDistanceMeters(lat, lng, c.lat, c.lng);
+          if (d <= 700) return true;
+        }
+
+        // 2. Textual address overlap
+        const cLoc = (c.address || c.location || "").toLowerCase();
+        if (cLoc && cleanQuery.length >= 4) {
+          if (cLoc.includes(cleanQuery) || cleanQuery.includes(cLoc)) return true;
+          const cTokens = cLoc.match(/\w{3,}/g) || [];
+          if (queryTokens.length && cTokens.length) {
+            const overlap = queryTokens.filter(t => cTokens.includes(t));
+            if (overlap.length >= 1 && (overlap.length / queryTokens.length >= 0.35)) return true;
+          }
+        }
+        return false;
+      });
+
+      if (matches.length > 0) {
+        panel.style.display = "block";
+        if (badge) badge.textContent = `${matches.length} Active Nearby`;
+        list.innerHTML = matches.map(m => `
+          <div class="loc-dup-card">
+            <div class="loc-dup-top">
+              <span class="loc-dup-uid">#${m.uid}</span>
+              <span class="triage-badge badge-${(m.priority || 'medium').toLowerCase()}">${m.priority}</span>
+              <span class="triage-badge badge-${(m.status || 'Pending Review').toLowerCase().replace(/\s+/g, '')}">${m.status}</span>
+            </div>
+            <div class="loc-dup-issue">
+              <strong>${m.department}:</strong> ${m.complaint.length > 110 ? m.complaint.substring(0, 107) + '...' : m.complaint}
+            </div>
+            <div class="loc-dup-meta">
+              <span>📍 ${m.address || 'Location on record'}</span>
+              <span>⏱️ Filed: ${new Date(m.created_at).toLocaleDateString()}</span>
+            </div>
+            <div class="loc-dup-actions">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="window.trackFromLodge('${m.uid}')">
+                🔍 Track This Report (Avoid Duplicate)
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="window.linkAsSameIssue('${m.uid}')">
+                🤝 Same Issue (Upvote Urgency)
+              </button>
+            </div>
+          </div>
+        `).join("");
+      } else {
+        panel.style.display = "none";
+      }
+    } catch (err) {
+      console.warn("Location duplicates scan error:", err);
+    }
+  }
+
+  window.trackFromLodge = function(uid) {
+    switchTab("track");
+    const trackInput = document.getElementById("trackInput");
+    if (trackInput) trackInput.value = uid;
+    trackComplaintByUid(uid);
+    showToast(`Tracking existing grievance #${uid}. You avoided a duplicate report!`);
+  };
+
+  window.linkAsSameIssue = function(uid) {
+    showToast(`🤝 Linked your report to active case #${uid}. Municipal priority escalated!`);
+    window.trackFromLodge(uid);
+  };
+
   // Intelligent Problem Understanding & Complication Analysis Engine
   function classifyComplaint(text, category) {
     const t = (text || "").toLowerCase();
@@ -450,6 +544,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (nlpIntentText) nlpIntentText.textContent = `${localRes.reason}${compList}`;
     }
 
+    // Check location duplicates
+    if (addressInput && addressInput.value.trim().length >= 3) checkLocationDuplicates(addressInput.value, currentLat, currentLng);
+
     // Instant local duplicate check
     const check = api.checkDuplicateLocal(text, addressInput ? addressInput.value : "", category, currentLat, currentLng);
     if (check.isDuplicate) {
@@ -510,6 +607,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         addressInput.classList.remove("input-error");
       }
       evaluateTriage();
+      clearTimeout(locDupDebounceTimer);
+      locDupDebounceTimer = setTimeout(() => {
+        checkLocationDuplicates(addressInput.value, currentLat, currentLng);
+      }, 350);
     });
   }
 
@@ -2454,6 +2555,68 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
 
+    // 4b. Avoid Duplicates Neighborhood Scanner
+    const scanDupBtn = document.getElementById("mapScanDuplicatesBtn");
+    let duplicateScanCircle = null;
+
+    if (scanDupBtn) {
+      scanDupBtn.addEventListener("click", async () => {
+        scanDupBtn.textContent = "🛡️ Scanning Area...";
+        const complaints = await api.getAllComplaints();
+        const activeStatuses = ["pending review", "submitted", "assigned", "in progress"];
+
+        let centerLat = 13.0827;
+        let centerLng = 80.2707;
+        if (incidentLeafletMap) {
+          const c = incidentLeafletMap.getCenter();
+          centerLat = c.lat;
+          centerLng = c.lng;
+        }
+
+        function executeScan(lat, lng) {
+          scanDupBtn.textContent = "🛡️ Check My Area (Avoid Duplicates)";
+          if (duplicateScanCircle && incidentLeafletMap) {
+            incidentLeafletMap.removeLayer(duplicateScanCircle);
+          }
+
+          duplicateScanCircle = L.circle([lat, lng], {
+            radius: 650,
+            color: "#f59e0b",
+            fillColor: "#fef3c7",
+            fillOpacity: 0.25,
+            weight: 2,
+            dashArray: "6, 6"
+          }).addTo(incidentLeafletMap);
+
+          incidentLeafletMap.flyTo([lat, lng], 15, { animate: true });
+
+          const nearby = complaints.filter(c => {
+            const s = (c.status || "").toLowerCase();
+            if (!activeStatuses.some(st => s.includes(st))) return false;
+            if (!c.lat || !c.lng) return false;
+            return getHaversineDistanceMeters(lat, lng, c.lat, c.lng) <= 650;
+          });
+
+          if (nearby.length > 0) {
+            openGisInspector(nearby[0]);
+            showToast(`📍 Found ${nearby.length} active complaint(s) in this zone. Review to avoid duplicates.`);
+          } else {
+            showToast("✅ Area clear: No existing complaints found within 650m.");
+          }
+        }
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            pos => executeScan(pos.coords.latitude, pos.coords.longitude),
+            () => executeScan(centerLat, centerLng),
+            { timeout: 4000 }
+          );
+        } else {
+          executeScan(centerLat, centerLng);
+        }
+      });
+    }
+
     // 5. Fullscreen Toggle
     const fullscreenBtn = document.getElementById("mapFullscreenBtn");
     const viewport = document.getElementById("gisMapViewport");
@@ -2541,6 +2704,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (mapMarkersLayer) incidentLeafletMap.removeLayer(mapMarkersLayer);
       if (mapHeatmapLayer) incidentLeafletMap.removeLayer(mapHeatmapLayer);
       if (mapChronicLayer) incidentLeafletMap.addLayer(mapChronicLayer);
+    } else if (currentOverlayMode === "duplicates") {
+      if (mapMarkersLayer) incidentLeafletMap.addLayer(mapMarkersLayer);
+      if (mapHeatmapLayer) incidentLeafletMap.removeLayer(mapHeatmapLayer);
+      if (mapChronicLayer) incidentLeafletMap.removeLayer(mapChronicLayer);
     } else {
       // "all"
       if (mapMarkersLayer) incidentLeafletMap.addLayer(mapMarkersLayer);
@@ -2784,7 +2951,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
       ` : ''}
 
-      <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0;">
+      <!-- Avoid Duplicate Reporting Information Banner -->
+      <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.65rem 0.8rem; margin-top: 0.5rem; margin-bottom: 0.5rem;">
+        <div style="font-size: 0.76rem; font-weight: 800; color: #92400e; display: flex; align-items: center; gap: 0.35rem;">
+          <span>🛡️</span> Already Under Municipal Action
+        </div>
+        <div style="font-size: 0.73rem; color: #78350f; margin-top: 2px; line-height: 1.35;">
+          Status: <strong>${c.status}</strong>. If you are experiencing this issue at this location, you do not need to file a duplicate report.
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.65rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0;">
         <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank" class="btn btn-primary btn-sm" style="text-decoration: none; width: 100%; justify-content: center; gap: 0.35rem;">
           🧭 Live GPS Navigation (Google Maps)
         </a>

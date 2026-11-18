@@ -2704,3 +2704,100 @@ body {
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
 }
+
+
+/* ==========================================================================
+   Location-Aware Duplicate Avoidance Styles
+   ========================================================================== */
+.location-duplicates-panel {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-top: 0.65rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.location-duplicates-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #fef3c7;
+}
+
+.location-dup-count-badge {
+  background: #f59e0b;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+}
+
+.location-duplicates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.loc-dup-card {
+  background: #ffffff;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 0.75rem 0.85rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.loc-dup-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.15);
+  border-color: #f59e0b;
+}
+
+.loc-dup-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.loc-dup-uid {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: var(--primary);
+  font-size: 0.84rem;
+}
+
+.loc-dup-issue {
+  font-size: 0.8125rem;
+  color: var(--text-main);
+  line-height: 1.4;
+  margin-bottom: 0.4rem;
+}
+
+.loc-dup-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.loc-dup-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.loc-dup-actions .btn {
+  font-size: 0.74rem;
+  padding: 0.35rem 0.7rem;
+}
