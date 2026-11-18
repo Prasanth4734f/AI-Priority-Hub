@@ -596,6 +596,14 @@ class CityBrainAPI {
     return this._getLocalComplaints();
   }
 
+  async getAllComplaints() {
+    return this.getComplaints();
+  }
+
+  async updateComplaintStatus(uid, status) {
+    return this.updateStatus(uid, status);
+  }
+
   async getComplaint(uid) {
     if (this.isBackendOnline) {
       try {

@@ -2637,14 +2637,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const q = (searchInput?.value || "").trim();
       if (!q) return;
       const qLower = q.toLowerCase();
-      isMapRefreshing = true;
-    let complaints = [];
-    try {
-      complaints = await api.getAllComplaints();
-    } catch (e) {
-      isMapRefreshing = false;
-      return;
-    }
+      let complaints = [];
+      try {
+        complaints = await api.getComplaints();
+      } catch (e) {
+        complaints = [];
+      }
       const found = complaints.find(c =>
         (c.uid || "").toLowerCase().includes(qLower) ||
         (c.address || "").toLowerCase().includes(qLower) ||
@@ -2770,6 +2768,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (isResolved) countResolved++;
 
       // Apply Filters
+      if (currentOverlayMode === "duplicates" && isResolved) return; // In Avoid Duplicates mode, only show active open grievances
       if (prioFilterVal === "CRITICAL" && p !== "CRITICAL") return;
       if (prioFilterVal === "HIGH" && p !== "HIGH") return;
       if (prioFilterVal === "MEDIUM" && p !== "MEDIUM") return;
