@@ -2309,23 +2309,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   let currentOverlayMode = "pins";    // "pins" | "heatmap" | "chronic" | "all"
   let userLocationMarker = null;
 
-  // Base Map Layer Providers
+  // Base Map Layer Providers (100% Free, Zero API Key Required, Zero Watermarks, High Performance)
   const baseTileLayers = {
-    streets: L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      maxZoom: 20,
-      subdomains: "abcd",
-      attribution: "© OpenStreetMap contributors © CARTO Voyager"
+    streets: L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      subdomains: "abc",
+      attribution: "© OpenStreetMap contributors, Humanitarian OpenStreetMap Team"
     }),
     satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
       maxZoom: 19,
       attribution: "Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
     }),
-    dark: L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      maxZoom: 19,
-      subdomains: "abcd",
-      attribution: "© OpenStreetMap contributors © CARTO DarkMatter"
+    dark: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 16,
+      attribution: "Tiles © Esri — Esri, DeLorme, NAVTEQ"
     })
   };
+
+  let mapRealtimeSyncTimer = null;
+
+  function startMapRealtimeSync() {
+    if (mapRealtimeSyncTimer) clearInterval(mapRealtimeSyncTimer);
+    mapRealtimeSyncTimer = setInterval(async () => {
+      const mapSection = document.getElementById("view-map");
+      if (mapSection && mapSection.style.display !== "none" && incidentLeafletMap) {
+        await refreshIncidentMap(true);
+      }
+    }, 3500);
+  }
 
   function getHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
     const R = 6371e3;
@@ -2365,6 +2376,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (incidentLeafletMap) {
         incidentLeafletMap.invalidateSize();
         refreshIncidentMap();
+        startMapRealtimeSync();
       }
     }, 160);
   };
@@ -2455,29 +2467,54 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
 
-    // 6. Map Address / UID Search
+    // 6. Real-Time Map Address / UID Search with Photon Live Geocoding
     const searchInput = document.getElementById("mapSearchInput");
     const searchBtn = document.getElementById("mapSearchBtn");
-    function executeMapSearch() {
-      const q = (searchInput?.value || "").trim().toLowerCase();
+    async function executeMapSearch() {
+      const q = (searchInput?.value || "").trim();
       if (!q) return;
-      api.getAllComplaints().then(complaints => {
-        const found = complaints.find(c =>
-          (c.uid || "").toLowerCase().includes(q) ||
-          (c.address || "").toLowerCase().includes(q) ||
-          (c.complaint || "").toLowerCase().includes(q)
-        );
-        if (found) {
-          const lat = parseFloat(found.lat) || 13.0827;
-          const lng = parseFloat(found.lng) || 80.2707;
-          if (incidentLeafletMap) {
-            incidentLeafletMap.flyTo([lat, lng], 16, { animate: true });
-            openGisInspector(found);
-          }
-        } else {
-          showToast(`No incident match found for "${q}"`);
+      const qLower = q.toLowerCase();
+      isMapRefreshing = true;
+    let complaints = [];
+    try {
+      complaints = await api.getAllComplaints();
+    } catch (e) {
+      isMapRefreshing = false;
+      return;
+    }
+      const found = complaints.find(c =>
+        (c.uid || "").toLowerCase().includes(qLower) ||
+        (c.address || "").toLowerCase().includes(qLower) ||
+        (c.complaint || "").toLowerCase().includes(qLower)
+      );
+      if (found) {
+        const lat = parseFloat(found.lat) || 13.0827;
+        const lng = parseFloat(found.lng) || 80.2707;
+        if (incidentLeafletMap) {
+          incidentLeafletMap.flyTo([lat, lng], 16, { animate: true });
+          openGisInspector(found);
         }
-      });
+      } else {
+        // Real-time Global/Local Geocoding fallback via Photon API
+        try {
+          const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`);
+          const data = await res.json();
+          if (data && data.features && data.features.length) {
+            const [geoLng, geoLat] = data.features[0].geometry.coordinates;
+            const place = data.features[0].properties.name || q;
+            if (incidentLeafletMap) {
+              incidentLeafletMap.flyTo([geoLat, geoLng], 15, { animate: true });
+              L.popup()
+                .setLatLng([geoLat, geoLng])
+                .setContent(`<strong>📍 ${place}</strong><br><span style="font-size:0.75rem; color:#64748b;">GPS: [${geoLat.toFixed(4)}, ${geoLng.toFixed(4)}]</span>`)
+                .openOn(incidentLeafletMap);
+              showToast(`Navigated to ${place}`);
+              return;
+            }
+          }
+        } catch (e) {}
+        showToast(`No incident or location match found for "${q}"`);
+      }
     }
     if (searchBtn) searchBtn.addEventListener("click", executeMapSearch);
     if (searchInput) searchInput.addEventListener("keydown", e => { if (e.key === "Enter") executeMapSearch(); });
@@ -2512,7 +2549,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  async function refreshIncidentMap() {
+  let isMapRefreshing = false;
+
+  async function refreshIncidentMap(silent = false) {
+    if (isMapRefreshing) return;
     if (!incidentLeafletMap || !mapMarkersLayer || !mapChronicLayer) return;
 
     mapMarkersLayer.clearLayers();
@@ -2522,7 +2562,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       mapHeatmapLayer = null;
     }
 
-    const complaints = await api.getAllComplaints();
+    isMapRefreshing = true;
+    let complaints = [];
+    try {
+      complaints = await api.getAllComplaints();
+    } catch (e) {
+      isMapRefreshing = false;
+      return;
+    }
     const prioFilterVal = document.getElementById("mapFilterPriority")?.value || "ALL";
     const deptFilterVal = document.getElementById("mapFilterDept")?.value || "ALL";
 
@@ -2688,6 +2735,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Sync overlay visibility with active toggle
     updateOverlayVisibility();
+    isMapRefreshing = false;
   }
 
   function openGisInspector(c) {
@@ -2769,7 +2817,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     container.innerHTML = `<div style="grid-column: span 3; text-align: center; padding: 3rem; color: var(--text-muted);">Loading active work orders...</div>`;
 
-    const complaints = await api.getAllComplaints();
+    isMapRefreshing = true;
+    let complaints = [];
+    try {
+      complaints = await api.getAllComplaints();
+    } catch (e) {
+      isMapRefreshing = false;
+      return;
+    }
     const active = complaints.filter(c => !(c.status || "").toLowerCase().includes("reject"));
     const deptFilter = document.getElementById("dispatchFilterDept")?.value || "ALL";
 
