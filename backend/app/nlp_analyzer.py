@@ -58,27 +58,29 @@ class IntelligentPriorityEngine:
         cat = (category or "").lower().strip()
 
         # 1. FIRE, DISASTER & STRUCTURAL COLLAPSE
-        if re.search(r"\b(fire|flames?|blaze|explosion|blast|gas leak|cylinder leak|cylinder blast|building collaps\w*|wall collaps\w*|bridge collaps\w*|landslide|drowning|drowned)\b", t):
-            return "Fire & Rescue Services", 0.98
+        if (re.search(r"\b(fire|flames?|blaze|explosion|blast|gas leak|cylinder leak|cylinder blast|building collaps\w*|wall collaps\w*|bridge collaps\w*|landslide|drowning|drowned|mantalu|agni|koolipoindi)\b", t) or re.search(r"(మంటలు|అగ్ని|అగ్నిప్రమాదం|గ్యాస్ లీక్|సిలిండర్ పేలింది)", t)):
+            # If the mention of fire is incidental to snapped wires / electrical sparks, route to Electricity & Power Board
+            if not (re.search(r"\b(wire|cable|transformer|power line|electric pole|theega|theegalu|live wire)\b", t) and not re.search(r"\b(active fire|building on fire|house on fire|flames|blaze|explosion|cylinder blast)\b", t)):
+                return "Fire & Rescue Services", 0.98
 
         # 2. ELECTRICITY, POWER & HIGH VOLTAGE
-        if re.search(r"\b(electric\w*|power|transformer|live wire|hanging wire|open cable|high voltage|short circuit|blackout|voltage|street lights?|electric pole|electrocution|sparks?|sparking|power cut|load shedding|meter box)\b", t):
+        if re.search(r"\b(electric\w*|power|transformer|live wire|hanging wire|open cable|high voltage|short circuit|blackout|voltage|street lights?|electric pole|electrocution|sparks?|sparking|power cut|load shedding|meter box|current|carant|vidyuth|theega|theegalu|thegipoyindi|tegindi|lightlu|cheekati|velagadam ledu|velagatledu|current poindi|current ledu)\b", t) or re.search(r"(కరెంట్|విద్యుత్|తీగ|తీగలు|వైర్|ట్రాన్స్‌ఫార్మర్|లైట్లు|స్ట్రీట్ లైట్లు|వెలగడం లేదు|వెలగట్లేదు|చీకటి|పవర్ కట్|కరెంట్ పోయింది|స్పార్క్స్)", t):
             return "Electricity & Power Board", 0.95
 
         # 3. WATER SUPPLY & SEWERAGE
-        if re.search(r"\b(water|pipe(line)?|leak\w*|burst|taps?|sewers?|sewerage|drains?|drainage|gutters?|flooding|muddy water|dirty water|no water|water supply|drinking water|borewell|water tank)\b", t):
+        if re.search(r"\b(water|pipe(line)?|leak\w*|burst|taps?|sewers?|sewerage|drains?|drainage|gutters?|flooding|muddy water|dirty water|no water|water supply|drinking water|borewell|water tank|neellu|neeru|manchi neellu|manchineellu|thaguneeru|pagilipoindi|leakej|vrudha|ravatledu|ravadam ledu|raledu|muriki neellu|kalushitha|murugu|kaaluva|kaluva|muruguneeru|kampu|durvaasana|mootha ledu|open manhole)\b", t) or re.search(r"(నీళ్లు|నీరు|మంచినీళ్లు|మంచినీటి|తాగునీరు|పైపు|పైప్‌లైన్|పగిలిపోయింది|లీకేజ్|వృధా|రావడం లేదు|రావట్లేదు|మురుగు|కాలువ|డ్రైనేజీ|డ్రైనేజ్|మ్యాన్‌హోల్|మ్యాన్ హోల్|మూత లేదు|కంపు|మురుగునీరు)", t):
             return "Water Supply & Sewerage Board", 0.95
 
         # 4. ROADS & INFRASTRUCTURE (PWD)
-        if re.search(r"\b(roads?|potholes?|traffic|signals?|traffic light|bridges?|flyovers?|footpaths?|sidewalks?|manholes?|sinkholes?|craters?|tar|asphalt|pavement|cave[- ]?in|caved in|road divider)\b", t):
+        if re.search(r"\b(roads?|potholes?|traffic|signals?|traffic light|bridges?|flyovers?|footpaths?|sidewalks?|manholes?|sinkholes?|craters?|tar|asphalt|pavement|cave[- ]?in|caved in|road divider|gunta|guntalu|gothulu|rahadari|paadaipoindi|padaipoyindi|debbathindi|guntalo)\b", t) or re.search(r"(గుంత|గుంతలు|గోతులు|రహదారి|పాడైపోయింది|దెబ్బతింది)", t):
             return "Public Works Department (PWD)", 0.95
 
         # 5. SANITATION & SOLID WASTE
-        if re.search(r"\b(garbage|trash|waste|dumps?|dumping|dustbins?|stench|smell|foul|filth|dead animal|carcass|sanitation|sweeper|litter|debris|drain smell|unhygienic)\b", t):
+        if re.search(r"\b(garbage|trash|waste|dumps?|dumping|dustbins?|stench|smell|foul|filth|dead animal|carcass|sanitation|sweeper|litter|debris|drain smell|unhygienic|chetha|chethakuppalu|kuppalu|perukupoindi|durvaasana|vasana|dhomalu|chachina janthuvu|clean cheyaledu|theeyatledu)\b", t) or re.search(r"(చెత్త|చెత్తకుప్పలు|కుప్పలు|పేరుకుపోయింది|దుర్వాసన|వాసన|దోమలు|చచ్చిన జంతువు|కళేబరం)", t):
             return "Public Health & Sanitation Department", 0.94
 
         # 6. POLICE, CRIME & PUBLIC SAFETY
-        if re.search(r"\b(police|theft|thief|robber\w*|burglary|assault|fight|violence|harass\w*|stolen|eve[- ]teasing|drugs?|weapon|murder|gunshot|stabbing|knife|gang|crime|illegal|threat|rowdies)\b", t):
+        if re.search(r"\b(police|theft|thief|robber\w*|burglary|assault|fight|violence|harass\w*|stolen|eve[- ]teasing|drugs?|weapon|murder|gunshot|stabbing|knife|gang|crime|illegal|threat|rowdies|dongathanam|godava|daadi|bhayam|rowdielu|bedirimpu)\b", t) or re.search(r"(దొంగతనం|గొడవ|దాడి|భయం|రౌడీలు|బెదిరింపు)", t):
             return "Police & Law Enforcement", 0.94
 
         # 7. MEDICAL & AMBULANCE (When primary intent is medical rescue or clinical transport)
@@ -101,9 +103,9 @@ class IntelligentPriorityEngine:
     def identify_root_civic_asset(self, text: str, department: str) -> str:
         """Identifies the primary physical infrastructure asset or civic subject."""
         t = (text or "").lower()
-        if re.search(r"\b(open manhole|deep manhole|sinkhole|cave[- ]?in)\b", t):
+        if re.search(r"\b(open manhole|deep manhole|sinkhole|cave[- ]?in|mootha ledu|open ga undi)\b", t) or re.search(r"(మ్యాన్‌హోల్|మ్యాన్ హోల్|మూత లేదు)", t):
             return "Severe Roadway Structural Hazard (Open Manhole / Sinkhole)"
-        if re.search(r"\b(potholes?|craters?|road damage|broken road|tar|asphalt)\b", t):
+        if re.search(r"\b(potholes?|craters?|road damage|broken road|tar|asphalt|gunta|guntalu|gothulu|paadaipoindi|padaipoyindi|debbathindi)\b", t) or re.search(r"(గుంత|గుంతలు|గోతులు|పాడైపోయింది|దెబ్బతింది)", t):
             return "Road Infrastructure Disrepair (Pothole / Crater)"
         if re.search(r"\b(bridges?|flyovers?)\b", t):
             return "Major Civil Structure (Bridge / Flyover Disrepair)"
@@ -111,31 +113,31 @@ class IntelligentPriorityEngine:
             return "Traffic Regulation Asset (Signal / Light Failure)"
         if re.search(r"\b(footpaths?|sidewalks?)\b", t):
             return "Pedestrian Infrastructure (Damaged Footpath)"
-        if re.search(r"\b(live wire|hanging wire|open cable|high voltage|sparking wire|snapped wire|wire snapped|electric wire)\b", t):
+        if re.search(r"\b(live wire|hanging wire|open cable|high voltage|sparking wire|snapped wire|wire snapped|electric wire|theega|theegalu|thegipoyindi|tegindi)\b", t) or re.search(r"(తీగ|తీగలు|స్పార్క్స్|షాక్)", t):
             return "High-Voltage Lethal Wire Hazard"
-        if re.search(r"\b(transformers?|exploding transformer|sparking transformer)\b", t):
+        if re.search(r"\b(transformers?|exploding transformer|sparking transformer)\b", t) or "ట్రాన్స్‌ఫార్మర్" in t:
             return "Power Grid Transformer Malfunction"
-        if re.search(r"\b(street lights?|bulb)\b", t):
+        if re.search(r"\b(street lights?|bulb|lightlu|velagadam ledu|velagatledu)\b", t) or re.search(r"(స్ట్రీట్ లైట్లు|లైట్లు|వెలగడం లేదు|వెలగట్లేదు)", t):
             return "Municipal Street Lighting Asset"
-        if re.search(r"\b(blackout|power cut|load shedding)\b", t):
+        if re.search(r"\b(blackout|power cut|load shedding|current poindi|current ledu)\b", t) or re.search(r"(పవర్ కట్|కరెంట్ పోయింది|కరెంట్ లేదు)", t):
             return "Area Grid Power Outage"
-        if re.search(r"\b(pipe(line)?|burst pipe|water leak|pipe burst|main burst)\b", t):
+        if re.search(r"\b(pipe(line)?|burst pipe|water leak|pipe burst|main burst|pagilipoindi|vrudha)\b", t) or re.search(r"(పైపు|పగిలిపోయింది|వృధా)", t):
             return "Water Distribution Pipeline Rupture"
-        if re.search(r"\b(sewers?|sewerage|drains?|drainage|gutters?)\b", t):
+        if re.search(r"\b(sewers?|sewerage|drains?|drainage|gutters?|murugu|kaaluva|kaluva|muruguneeru)\b", t) or re.search(r"(మురుగు|కాలువ|డ్రైనేజీ|డ్రైనేజ్)", t):
             return "Sewerage & Drainage Network Choke / Overflow"
-        if re.search(r"\b(drinking water|dirty water|muddy water|contaminated)\b", t):
+        if re.search(r"\b(drinking water|dirty water|muddy water|contaminated|muriki neellu|kalushitha)\b", t) or re.search(r"(మురికి నీళ్లు|కలుషిత)", t):
             return "Drinking Water Contamination Hazard"
-        if re.search(r"\b(no water|low pressure|water pressure)\b", t):
+        if re.search(r"\b(no water|low pressure|water pressure|ravadam ledu|ravatledu)\b", t) or re.search(r"(నీళ్లు రావడం లేదు|రావట్లేదు|నీరు లేదు)", t):
             return "Municipal Water Supply Scarcity"
-        if re.search(r"\b(dead animal|carcass)\b", t):
+        if re.search(r"\b(dead animal|carcass|chachina|janthuvu)\b", t) or re.search(r"(చచ్చిన జంతువు|కళేబరం)", t):
             return "Public Health Hazard (Animal Carcass)"
-        if re.search(r"\b(garbage|trash|waste|dumps?|dustbins?)\b", t):
+        if re.search(r"\b(garbage|trash|waste|dumps?|dustbins?|chetha|chethakuppalu|kuppalu|perukupoindi|durvaasana)\b", t) or re.search(r"(చెత్త|చెత్తకుప్పలు|కుప్పలు|పేరుకుపోయింది|దుర్వాసన)", t):
             return "Solid Waste Accumulation & Sanitation Hazard"
-        if re.search(r"\b(fire|flames?|blaze|explosion|gas leak)\b", t):
+        if re.search(r"\b(fire|flames?|blaze|explosion|gas leak|mantalu|agni)\b", t) or re.search(r"(మంటలు|అగ్ని|అగ్నిప్రమాదం)", t):
             return "Active Fire / Explosion / Disaster Hazard"
         if re.search(r"\b(cardiac|heart attack|stroke|ambulance|unconscious)\b", t):
             return "Emergency Healthcare / Critical Patient Transport"
-        if re.search(r"\b(theft|burglary|robbery|assault|crime)\b", t):
+        if re.search(r"\b(theft|burglary|robbery|assault|crime|dongathanam|godava|daadi)\b", t) or re.search(r"(దొంగతనం|గొడవ|దాడి)", t):
             return "Law & Order Infraction / Public Safety Threat"
 
         return f"{department} Operational Maintenance"
@@ -168,21 +170,21 @@ class IntelligentPriorityEngine:
         elif re.search(r"\b(weapon|gun|knife|murder|stabbing|armed robbery|shoot(ing)?)\b", t):
             life_hazard = 9
             detected_complications.append("Armed Violent Crime / Active Threat to Life")
-        elif re.search(r"\b(live wire|hanging wire|open cable|electrocution|exploding transformer|high voltage|sparking wire|snapped wire)\b", t):
+        elif re.search(r"\b(live wire|hanging wire|open cable|electrocution|exploding transformer|high voltage|sparking wire|snapped wire|theega|theegalu|thegipoyindi|tegindi)\b", t) or re.search(r"(తీగ|తీగలు|స్పార్క్స్|షాక్)", t):
             life_hazard = 9
             detected_complications.append("Exposed Lethal High-Voltage Electrical Hazard")
-        elif re.search(r"\b(open manhole|deep manhole|sinkhole|bridge crack|cave[- ]?in|caved in)\b", t):
+        elif re.search(r"\b(open manhole|deep manhole|sinkhole|bridge crack|cave[- ]?in|caved in|mootha ledu|open ga undi)\b", t) or re.search(r"(మ్యాన్‌హోల్|మ్యాన్ హోల్|మూత లేదు)", t):
             life_hazard = 8
             detected_complications.append("Lethal Roadway Collapse / Deep Uncovered Manhole")
-        elif re.search(r"\b(people are getting injured|people getting injured|severe accident|fatal accident|fell|fell into|injured|bike slipped|slipped|broken bones?|blood|crashed)\b", t):
+        elif re.search(r"\b(people are getting injured|people getting injured|severe accident|fatal accident|fell|fell into|injured|bike slipped|slipped|broken bones?|blood|crashed|padipotunnaru|padipotunnayi|padipothunnaru)\b", t) or re.search(r"(పడిపోతున్నారు|పడిపోతున్నాయి|ప్రమాదం|గాయపడ్డారు)", t):
             life_hazard = 7
             detected_complications.append("Active Bodily Injury & Physical Accidents Reported")
 
         # --- Dimension 2: Vulnerable Location & Demographics ---
-        if re.search(r"\b(school|high school|elementary school|kindergarten|primary school|daycare|college|students?|children|kids)\b", t):
+        if re.search(r"\b(school|high school|elementary school|kindergarten|primary school|daycare|college|students?|children|kids|pillalu)\b", t) or "పిల్లలు" in t:
             vulnerability = max(vulnerability, 9)
             detected_complications.append("High Vulnerability Zone: School / Children Proximity")
-        if re.search(r"\b(hospital|clinic|nursing home|icu|emergency room|patients?|old age home|elderly|pregnant)\b", t):
+        if re.search(r"\b(hospital|clinic|nursing home|icu|emergency room|patients?|old age home|elderly|pregnant)\b", t) or "ఆసుపత్రి" in t:
             vulnerability = max(vulnerability, 9)
             detected_complications.append("Sensitive Zone: Hospital / Patient / Healthcare Facility")
         if re.search(r"\b(bus stand|bus stop|metro station|railway station|train station|crowded market|bazaar|junction|pedestrian crossing)\b", t):
@@ -193,14 +195,14 @@ class IntelligentPriorityEngine:
         if re.search(r"\b(entire (area|neighborhood|colony|ward|street|road|block)|whole (street|neighborhood|colony|area)|all houses|multiple (houses|homes|families|apartments)|hundreds of families|multiple families)\b", t):
             scale_impact = max(scale_impact, 8)
             detected_complications.append("Widespread Impact: Entire Corridor / Multiple Residences Affected")
-        if re.search(r"\b(highway|expressway|arterial|main road|key junction|traffic (completely )?blocked|gridlock)\b", t):
+        if re.search(r"\b(highway|expressway|arterial|main road|key junction|traffic (completely )?blocked|gridlock|prayaanam kastam)\b", t) or "కష్టంగా" in t or "జామ్" in t:
             scale_impact = max(scale_impact, 8)
             detected_complications.append("Critical Transit Disruption: Arterial Corridor / Highway Blocked")
-        if re.search(r"\b(flooding|flood|submerged|houses|homes)\b", t):
-            if re.search(r"\b(flooding (the entire|the road|all|multiple)|water entered|submerged|flooding inside)\b", t):
+        if re.search(r"\b(flooding|flood|submerged|houses|homes|illaloki|illoki)\b", t) or "ఇళ్లలోకి" in t:
+            if re.search(r"\b(flooding (the entire|the road|all|multiple)|water entered|submerged|flooding inside|illaloki|illoki)\b", t) or "ఇళ్లలోకి" in t:
                 scale_impact = max(scale_impact, 8)
                 detected_complications.append("Inundation Risk: Flooding Roadway & Infiltrating Dwellings")
-        if re.search(r"\b(drinking water (is )?(contaminated|muddy|black|smelling|poisonous)|sewage mixed with drinking)\b", t):
+        if re.search(r"\b(drinking water (is )?(contaminated|muddy|black|smelling|poisonous)|sewage mixed with drinking|kalushitha|muriki neellu)\b", t) or "మురికి నీళ్లు" in t:
             scale_impact = max(scale_impact, 9)
             detected_complications.append("Critical Health Risk: Contaminated Drinking Water Supply")
 
@@ -211,7 +213,7 @@ class IntelligentPriorityEngine:
         if re.search(r"\b(for (\d+|several|many) (days|weeks)|past month|repeated complaints|no action taken|still not fixed)\b", t):
             urgency_escalation = max(urgency_escalation, 6)
             detected_complications.append("Persistent Chronic Grievance: Multi-Day Neglected Failure")
-        if re.search(r"\b(dead animal|carcass|rotting|maggots|dengue|malaria hotspot)\b", t):
+        if re.search(r"\b(dead animal|carcass|rotting|maggots|dengue|malaria hotspot|dhomalu|kampu|durvaasana)\b", t) or re.search(r"(దోమలు|కంపు|దుర్వాసన)", t):
             urgency_escalation = max(urgency_escalation, 7)
             detected_complications.append("Epidemiological Threat: Rotting Vector / Disease Risk")
 
@@ -399,94 +401,169 @@ def get_priority_and_department(text: str, category: Optional[str] = None) -> Tu
 
 def synthesize_civic_meaning(literal_en: str, raw_orig: str = "") -> str:
     """
-    Translates raw colloquial, emotional, or translated citizen speech into
-    a formal, high-clarity civic statement reflecting the exact MEANING, physical defect,
-    and municipal hazard rather than literal word-by-word phrasing.
+    Translates raw colloquial, emotional, regional (Telugu, Hindi, Tamil, Kannada),
+    or machine-translated citizen speech into a formal, high-clarity municipal civic statement
+    reflecting the true physical MEANING, civic defect, and hazard rather than literal word-by-word phrasing.
     """
-    if not literal_en or not literal_en.strip():
+    text_primary = (literal_en or "").strip()
+    text_orig = (raw_orig or "").strip()
+    if not text_primary and not text_orig:
         return ""
 
-    t = literal_en.lower().strip()
-    analysis = priority_engine.analyze(literal_en)
-    asset = analysis.get("root_issue", "Civic Infrastructure Disrepair")
-    compl = analysis.get("complications", {}).get("detected", [])
+    combined = f"{text_primary} {text_orig}".lower().strip()
 
-    # 1. Primary Physical Defect & Asset Context
+    # 1. CORE CIVIC ISSUE IDENTIFICATION
     defect = ""
-    if re.search(r"\b(pothole|potholes|crater|craters|road damage|broken road|sinkhole|cave[- ]?in)\b", t):
-        if "sinkhole" in t or "cave" in t:
-            defect = "Severe roadway structural collapse with deep sinkhole crater"
-        else:
-            defect = "Major road infrastructure degradation with deep pothole crater"
-    elif re.search(r"\b(live wire|hanging wire|open cable|electric wire|power line|sparking wire|snapped wire|power cut|transformer)\b", t):
-        if "transformer" in t:
-            defect = "Municipal power grid transformer malfunction and electrical fault"
-        elif any(k in t for k in ["wire", "cable", "line"]):
-            defect = "Exposed high-voltage electrical power cable snapped and fallen"
-        else:
-            defect = "Severe electrical grid failure and localized power outage"
-    elif re.search(r"\b(pipe|pipeline|leak|burst|water line|drinking water)\b", t):
-        if "burst" in t or "heavy" in t or "river" in t:
-            defect = "Pressurized municipal water distribution pipeline rupture and major inundation"
-        elif any(k in t for k in ["drinking", "dirty", "contaminated", "muddy"]):
-            defect = "Severe municipal drinking water contamination with turbid supply"
-        else:
-            defect = "Municipal water pipeline leak and continuous water wastage"
-    elif re.search(r"\b(drain|drainage|sewer|gutter|overflow|sewerage|manhole)\b", t):
-        if "manhole" in t:
-            defect = "Dangerous uncovered deep municipal sewer manhole on public thoroughfare"
-        else:
-            defect = "Clogged municipal drainage network causing foul sewage overflow"
-    elif re.search(r"\b(garbage|trash|waste|dump|stench|smell|dead animal|carcass)\b", t):
-        if "animal" in t or "carcass" in t:
-            defect = "Decomposing animal carcass on public pathway posing acute biohazard"
-        else:
-            defect = "Heavy uncollected solid waste accumulation emitting severe foul stench"
-    elif re.search(r"\b(street light|street lights|light|dark|bulb)\b", t):
-        defect = "Non-functional municipal street lighting causing dark, unsafe road corridor"
-    elif re.search(r"\b(fire|blaze|flames|smoke|explosion|gas leak)\b", t):
-        defect = "Active fire and hazardous emergency situation requiring urgent suppression"
-    elif re.search(r"\b(accident|injured|bleeding|ambulance)\b", t):
-        defect = "Acute emergency casualty incident requiring urgent paramedic medical response"
-    elif re.search(r"\b(theft|robbery|assault|crime|knife|gun|threat)\b", t):
-        defect = "Active public safety emergency involving criminal threat and civil disturbance"
-    else:
-        clean_summary = literal_en.rstrip(". ")
-        defect = clean_summary[:1].upper() + clean_summary[1:] if clean_summary else asset
+    dept_action = ""
 
-    # 2. Observed Impact, Hazards & Real-World Consequences
+    # Check for Pipe / Water Leak / Outage vs Pothole
+    is_water_term = bool(
+        re.search(r"\b(water|pipe|pipeline|leak\w*|burst|taps?|borewell|water supply|drinking water|potable water)\b", combined) or
+        re.search(r"\b(neellu|neeru|manchi neellu|manchineellu|thaguneeru|taguneeru|pagilipoindi|pagilipoyindi|leakej|vrudha|ravatledu|ravadam ledu|ravadamledhu|raledu|muriki neellu|kalushitha)\b", combined) or
+        re.search(r"(నీళ్లు|నీరు|మంచినీళ్లు|మంచినీటి|తాగునీరు|పైపు|పైప్‌లైన్|పగిలిపోయింది|లీకేజ్|వృధా|రావడం లేదు|రావట్లేదు|మురికి నీళ్లు|కలుషిత)", combined)
+    )
+
+    is_drainage_term = bool(
+        re.search(r"\b(drain|drainage|sewer|sewerage|gutter|gutters|manhole|sewage|foul water|sludge)\b", combined) or
+        re.search(r"\b(murugu|kaaluva|kaluva|muruguneeru|kampu|durvaasana|mootha ledu|open manhole)\b", combined) or
+        re.search(r"(మురుగు|కాలువ|డ్రైనేజీ|డ్రైనేజ్|మ్యాన్‌హోల్|మ్యాన్ హోల్|మూత లేదు|కంపు|మురుగునీరు)", combined)
+    )
+
+    is_pothole_term = bool(
+        re.search(r"\b(potholes?|craters?|sinkholes?|cave[- ]?in|caved in|road collapse|cratered road)\b", combined) or
+        re.search(r"\b(gunta|guntalu|gothulu|guntalo)\b", combined) or
+        re.search(r"(గుంత|గుంతలు|గోతులు)", combined) or
+        ((re.search(r"\b(road|roads|rahadari)\b", combined) or "రోడ్డు" in combined or "రహదారి" in combined) and
+         (re.search(r"\b(damage|damaged|broken|destroyed|collapse|collapsed|paadaipoindi|padaipoyindi|debbathindi|guntalu paddayi)\b", combined) or
+          re.search(r"(పాడైపోయింది|దెబ్బతింది|కూలిపోయింది)", combined)))
+    ) and not (is_water_term and not re.search(r"\b(potholes?|gunta|గుంత)\b", combined))
+
+    is_electric_term = bool(
+        re.search(r"\b(electric\w*|power|transformer|live wire|hanging wire|open cable|high voltage|sparking|snapped wire|power cut|street lights?|streetlights?|bulb|blackout)\b", combined) or
+        re.search(r"\b(current|carant|vidyuth|theega|theegalu|wire|thegipoyindi|tegindi|transformer|lightlu|street light|velagadam ledu|velagatledu|cheekati|cheekatiga|power cut|current poindi|current ledu)\b", combined) or
+        re.search(r"(కరెంట్|విద్యుత్|తీగ|తీగలు|వైర్|ట్రాన్స్‌ఫార్మర్|లైట్లు|స్ట్రీట్ లైట్లు|వెలగడం లేదు|వెలగట్లేదు|చీకటి|పవర్ కట్|కరెంట్ పోయింది|స్పార్క్స్)", combined)
+    )
+
+    is_garbage_term = bool(
+        re.search(r"\b(garbage|trash|waste|dump|dumps|dustbin|dustbins|stench|smell|dead animal|carcass|sanitation|debris)\b", combined) or
+        re.search(r"\b(chetha|chethakuppalu|kuppalu|perukupoindi|durvaasana|vasana|dhomalu|chachina janthuvu|clean cheyaledu|theeyatledu)\b", combined) or
+        re.search(r"(చెత్త|చెత్తకుప్పలు|కుప్పలు|పేరుకుపోయింది|దుర్వాసన|వాసన|దోమలు|చచ్చిన జంతువు|కళేబరం)", combined)
+    )
+
+    is_fire_term = bool(
+        re.search(r"\b(fire|blaze|flames?|smoke|explosion|blast|gas leak|cylinder blast)\b", combined) or
+        re.search(r"\b(mantalu|agni|cylinder blast|koolipoindi)\b", combined) or
+        re.search(r"(మంటలు|అగ్ని|అగ్నిప్రమాదం|గ్యాస్ లీక్|సిలిండర్)", combined)
+    )
+
+    is_police_term = bool(
+        re.search(r"\b(theft|burglary|robbery|assault|fight|violence|harass|stolen|weapon|knife|threat|rowdies)\b", combined) or
+        re.search(r"\b(dongathanam|godava|daadi|bhayam|rowdielu|bedirimpu)\b", combined) or
+        re.search(r"(దొంగతనం|గొడవ|దాడి|భయం|రౌడీలు|బెదిరింపు)", combined)
+    )
+
+    # A. FIRE & DISASTER
+    if is_fire_term:
+        defect = "Active fire outbreak and hazardous disaster emergency"
+        dept_action = "Urgent Fire & Rescue Services deployment and emergency suppression required"
+
+    # B. ELECTRICITY & STREETLIGHTING
+    elif is_electric_term:
+        if bool(re.search(r"\b(street lights?|streetlights?|bulb|lights?|lightlu)\b", combined)) and (
+            bool(re.search(r"\b(velagadam ledu|velagatledu|not glowing|not working|off|dark|no lights|broken bulb)\b", combined)) or
+            "వెలగడం లేదు" in combined or "వెలగట్లేదు" in combined or "చీకటి" in combined or "cheekati" in combined
+        ):
+            defect = "Non-functional municipal street lighting network causing dark, hazardous road corridor"
+            dept_action = "Urgent municipal electrical maintenance and street light restoration required"
+        elif bool(re.search(r"\b(transformer)\b", combined)) or "ట్రాన్స్‌ఫార్మర్" in combined:
+            defect = "Municipal power grid transformer malfunction and electrical breakdown"
+            dept_action = "Urgent Electricity Board technical intervention and transformer replacement required"
+        elif bool(re.search(r"\b(wire|theega|cable|line|spark|sparks|live wire|snapped)\b", combined)) or "తీగ" in combined or "స్పార్క్స్" in combined:
+            defect = "Exposed live high-voltage electrical power cable snapped and fallen on public roadway, posing lethal electrocution danger"
+            dept_action = "Immediate Electricity Board emergency power shutdown and hazardous cable clearance required"
+        else:
+            defect = "Severe municipal electrical grid failure causing localized blackout and power outage"
+            dept_action = "Urgent Electricity Board line restoration and power grid stabilization required"
+
+    # C. ROADS & INFRASTRUCTURE
+    elif is_pothole_term:
+        if bool(re.search(r"\b(sinkhole|cave[- ]?in|structural collapse)\b", combined)) or "కూలిపోయింది" in combined:
+            defect = "Severe roadway structural collapse with hazardous deep sinkhole crater"
+            dept_action = "Urgent PWD emergency structural barricading, road rebuild, and asphalt paving required"
+        else:
+            defect = "Major roadway deterioration with dangerous deep potholes and craters"
+            dept_action = "Urgent municipal road repair, safety barricading, and asphalt resurfacing required"
+
+    # D. DRAINAGE & SEWERAGE
+    elif is_drainage_term:
+        if bool(re.search(r"\b(manhole|mootha ledu|open manhole|deep manhole|uncovered)\b", combined)) or "మ్యాన్‌హోల్" in combined or "మూత లేదు" in combined:
+            defect = "Dangerous uncovered municipal sewer manhole on public thoroughfare posing fatal fall hazard"
+            dept_action = "Immediate municipal manhole replacement, heavy-duty safety covering, and hazard perimeter cordoning required"
+        else:
+            defect = "Clogged municipal drainage network causing foul raw sewage overflow and hazardous standing wastewater"
+            dept_action = "Urgent municipal drainage desilting, sewer clearance, and sanitization required"
+
+    # E. WATER SUPPLY & DRINKING WATER
+    elif is_water_term:
+        if bool(re.search(r"\b(burst|pagilipoindi|rupture|broken pipe|pipe broke|pipe broken|leak|waste|vrudha|flooding|river|flowing)\b", combined)) or "పగిలిపోయింది" in combined or "వృధా" in combined:
+            defect = "Pressurized municipal drinking water distribution pipeline rupture causing massive potable water wastage"
+            dept_action = "Urgent Water Supply & Sewerage Board emergency pipeline repair and valve shutdown required"
+        elif bool(re.search(r"\b(ravadam ledu|ravatledu|no water|water is not coming|supply cut|scarcity|shortage|dry|outage)\b", combined)) or "రావడం లేదు" in combined or "రావట్లేదు" in combined:
+            defect = "Complete outage and severe disruption of municipal drinking water supply to the locality"
+            dept_action = "Urgent Water Board municipal supply line restoration and emergency water tanker deployment required"
+        elif bool(re.search(r"\b(dirty|muddy|contaminated|muriki|smell|foul|yellow|turbid)\b", combined)) or "మురికి" in combined or "కలుషిత" in combined:
+            defect = "Severe municipal drinking water contamination with turbid and unsafe domestic water supply"
+            dept_action = "Urgent Water Quality Board pipeline flushing, contamination isolation, and sample testing required"
+        else:
+            defect = "Municipal drinking water distribution infrastructure defect and continuous leakage"
+            dept_action = "Urgent Water Supply & Sewerage Board inspection and maintenance required"
+
+    # F. SANITATION & SOLID WASTE
+    elif is_garbage_term:
+        if bool(re.search(r"\b(animal|carcass|janthuvu|kukka|dog|dead)\b", combined)) or "చచ్చిన" in combined or "జంతువు" in combined or "కళేబరం" in combined:
+            defect = "Decomposing animal carcass on public pathway posing acute biohazard and public health emergency"
+            dept_action = "Immediate public health and veterinary sanitation dispatch for safe biohazard removal required"
+        else:
+            defect = "Heavy accumulation of uncollected municipal solid waste emitting severe foul stench and attracting stray animals"
+            dept_action = "Urgent municipal solid waste clearance, sanitation compactor dispatch, and chemical disinfection required"
+
+    # G. POLICE & PUBLIC SAFETY
+    elif is_police_term:
+        defect = "Active public safety disturbance and threat to community security"
+        dept_action = "Immediate Police and Law Enforcement patrol dispatch required"
+
+    else:
+        # Fallback to general clean summary
+        clean = text_primary.replace(r'[.\s]+$', '').strip()
+        defect = clean[:1].upper() + clean[1:] if clean else "Municipal civic infrastructure disrepair"
+        dept_action = "Urgent municipal inspection and corrective action required"
+
+    # 2. OBSERVED IMPACTS & REAL-WORLD CONSEQUENCES
     impacts = []
-    if re.search(r"\b(accident|accidents|fell|falling|slip|slipped|crash|crashed|injured|injuries|damage)\b", t):
-        impacts.append("causing active vehicular accidents and commuter injury risk")
-    if re.search(r"\b(spark|sparks|shock|electrocution|sparks flying|fire hazard)\b", t):
-        impacts.append("emitting hazardous electrical sparks with lethal electrocution danger")
-    if re.search(r"\b(flood|flooding|water entered|homes|houses|dwelling|dwellings|inside|shop|shops)\b", t):
-        impacts.append("inundating nearby dwellings and disrupting local access")
-    if re.search(r"\b(disease|diseases|smell|stench|unbearable|dogs|mosquito|dengue|malaria|hygiene|unhygienic)\b", t):
-        impacts.append("generating vector-borne disease threats and critical unhygienic conditions")
-    if re.search(r"\b(school|children|students|kids)\b", t):
-        impacts.append("situated in immediate proximity to school zone endangering students")
-    if re.search(r"\b(hospital|clinic|patient|patients|icu)\b", t):
-        impacts.append("obstructing critical emergency access route to healthcare facility")
-    if re.search(r"\b(traffic|block|blocked|gridlock|jam)\b", t):
-        impacts.append("creating severe traffic gridlock across primary transit corridor")
-    if re.search(r"\b(dark|theft|unsafe|danger|women|evening|night)\b", t):
-        impacts.append("compromising night-time public transit safety")
+    if bool(re.search(r"\b(accident|accidents|bikes?|vehicles?|motorcycle|scooter|fall|falling|fell|slip|slipped|crash|crashed|injured|injuries|damage|padipotunnaru|padipotunnayi|padipothunnaru)\b", combined)) or "పడిపోతున్నారు" in combined or "పడిపోతున్నాయి" in combined or "ప్రమాదం" in combined:
+        impacts.append("causing active two-wheeler skids, commuter accidents, and severe injury risk")
+    if bool(re.search(r"\b(spark|sparks|shock|electrocution|fire hazard|sparks coming)\b", combined)) or "స్పార్క్స్" in combined or "షాక్" in combined:
+        impacts.append("emitting hazardous electrical sparks with imminent electrocution and fire hazard")
+    if bool(re.search(r"\b(flood|flooding|water entered|homes|houses|dwelling|dwellings|shops|inside|illaloki|illoki)\b", combined)) or "ఇళ్లలోకి" in combined:
+        impacts.append("inundating adjacent residential dwellings and disrupting local access")
+    if bool(re.search(r"\b(stench|smell|foul|unbearable|mosquito|mosquitoes|dhomalu|dengue|malaria|hygiene|unhygienic|disease|kampukoduthondi|kampu)\b", combined)) or "దుర్వాసన" in combined or "దోమలు" in combined or "కంపు" in combined:
+        impacts.append("generating unbearable foul stench, vector-borne disease breeding threats (dengue/malaria), and acute unhygienic conditions")
+    if bool(re.search(r"\b(school|children|students|kids|pillalu)\b", combined)) or "పిల్లలు" in combined:
+        impacts.append("situated in high-vulnerability school zone endangering students and pedestrians")
+    if bool(re.search(r"\b(hospital|clinic|patient|patients|ambulance)\b", combined)) or "ఆసుపత్రి" in combined:
+        impacts.append("obstructing critical emergency access route to healthcare facilities")
+    if bool(re.search(r"\b(traffic|block|blocked|gridlock|jam|traffic jam|prayaanam kastam|travel is difficult)\b", combined)) or "జామ్" in combined or "కష్టంగా" in combined:
+        impacts.append("creating severe traffic gridlock and transit obstruction across the primary thoroughfare")
+    if bool(re.search(r"\b(dark|theft|unsafe|danger|women|night|night-time|cheekati|cheekatiga)\b", combined)) or "చీకటి" in combined or "భయంగా" in combined:
+        impacts.append("severely compromising pedestrian and commuter safety during night hours")
 
-    # 3. Incorporate Detected Complications
-    for c in compl:
-        if "School" in c and not any("school" in p for p in impacts):
-            impacts.append("located in high-vulnerability school vicinity")
-        if "Lethal" in c and not any("electrocution" in p for p in impacts):
-            impacts.append("posing acute life-safety electrical hazard")
-        if "Widespread" in c and not any("inundating" in p for p in impacts):
-            impacts.append("impacting entire residential sector")
-
+    # 3. CONSTRUCT FORMAL MEANING STATEMENT
+    statement = defect
     if impacts:
-        statement = defect + ", " + ", ".join(impacts) + "."
-    elif defect and defect != asset and defect != "Municipal civic infrastructure disrepair" and len(literal_en.split()) > 3:
-        statement = defect + ". Urgent municipal inspection and maintenance required."
-    else:
-        statement = literal_en.strip()
+        statement += ", " + ", ".join(impacts)
+    if dept_action:
+        statement += f". {dept_action}."
+    elif not statement.endswith("."):
+        statement += "."
 
     return statement

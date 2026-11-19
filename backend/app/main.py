@@ -176,6 +176,8 @@ def translate_endpoint(data: TranslateInput):
             res = json.loads(response.read().decode("utf-8"))
             literal_en = "".join([part[0] for part in res[0] if part[0]])
             detected_lang = res[2] if len(res) > 2 else "auto"
+            if any("\u0c00" <= ch <= "\u0c7f" for ch in raw_text) or any(k in raw_text.lower() for k in ["gunta", "neellu", "theega", "pagilipoindi", "chetha", "kampu", "velagadam"]):
+                detected_lang = "te"
 
             # Formulate the true municipal meaning rather than only literal exact words
             meaning_statement = synthesize_civic_meaning(literal_en, raw_text)
@@ -188,12 +190,13 @@ def translate_endpoint(data: TranslateInput):
                 "original_text": raw_text
             }
     except Exception as e:
+        detected_lang = "te" if any("\u0c00" <= ch <= "\u0c7f" for ch in raw_text) or any(k in raw_text.lower() for k in ["gunta", "neellu", "theega"]) else "auto"
         meaning_statement = synthesize_civic_meaning(raw_text, raw_text)
         return {
             "translated_text": meaning_statement or raw_text,
             "meaning_text": meaning_statement,
             "literal_text": raw_text,
-            "detected_lang": "auto",
+            "detected_lang": detected_lang,
             "original_text": raw_text,
             "error": str(e)
         }

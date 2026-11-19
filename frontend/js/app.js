@@ -1161,10 +1161,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   complaintForm.addEventListener("submit", async e => {
     e.preventDefault();
 
-    const desc = complaintInput.value.trim();
+    let desc = complaintInput.value.trim();
     if (desc.length < 8) {
       alert("Please provide at least 8 characters describing the issue to prevent false submissions.");
       return;
+    }
+
+    // Auto-translate if text is still in Telugu, non-English, or Romanized Telugu before saving
+    const hasNonAsciiDesc = /[^\u0000-\u007F]/.test(desc);
+    const hasTeluguRomanizedDesc = /\b(gunta|guntalu|neellu|neeru|theega|theegalu|pagilipoindi|durvaasana|kampu|dhomalu|perukupoindi|velagadam|velagatledu|cheekati|ravadam ledu|ravatledu|chachina|dongathanam|mantalu|kaluva|murugu)\b/i.test(desc);
+    if (hasNonAsciiDesc || hasTeluguRomanizedDesc) {
+      try {
+        const transRes = await api.translateText(desc, "en");
+        if (transRes && (transRes.meaning_text || transRes.translated_text)) {
+          desc = (transRes.meaning_text || transRes.translated_text).trim();
+          complaintInput.value = desc;
+        }
+      } catch (e) {}
     }
 
     let loc = addressInput.value.trim();
@@ -1531,61 +1544,256 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Admin Command Center Dashboard
+  // Admin Command Center Dashboard - High-Tech Executive Redesign
   let allAdminComplaints = [];
+  let currentAdminFilterPill = "all";
+
+  function formatRelativeTime(dateStr) {
+    if (!dateStr) return "Just now";
+    try {
+      const now = new Date();
+      const past = new Date(dateStr);
+      const diffSec = Math.floor((now - past) / 1000);
+      if (diffSec < 60) return "Just now";
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return `${diffHour}h ago`;
+      const diffDays = Math.floor(diffHour / 24);
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return past.toLocaleDateString([], { month: "short", day: "numeric" });
+    } catch (e) {
+      return "Recent";
+    }
+  }
+
+  function getDepartmentBadge(deptName) {
+    const d = (deptName || "General Administration").trim();
+    if (d.includes("Public Works") || d.includes("PWD")) {
+      return `<span class="dept-pill-badge" style="border-color: #93c5fd; background: #eff6ff; color: #1d4ed8;">🛣️ PWD</span>`;
+    } else if (d.includes("Water")) {
+      return `<span class="dept-pill-badge" style="border-color: #67e8f9; background: #ecfeff; color: #0e7490;">💧 Water Board</span>`;
+    } else if (d.includes("Electricity") || d.includes("Power")) {
+      return `<span class="dept-pill-badge" style="border-color: #fde047; background: #fefce8; color: #a16207;">⚡ Electricity</span>`;
+    } else if (d.includes("Sanitation") || d.includes("Health")) {
+      return `<span class="dept-pill-badge" style="border-color: #86efac; background: #f0fdf4; color: #15803d;">🗑️ Sanitation</span>`;
+    } else if (d.includes("Ambulance") || d.includes("Healthcare")) {
+      return `<span class="dept-pill-badge" style="border-color: #fca5a5; background: #fef2f2; color: #b91c1c;">🚑 Healthcare</span>`;
+    } else if (d.includes("Police") || d.includes("Law")) {
+      return `<span class="dept-pill-badge" style="border-color: #cbd5e1; background: #f8fafc; color: #334155;">👮 Police</span>`;
+    } else if (d.includes("Fire")) {
+      return `<span class="dept-pill-badge" style="border-color: #fdba74; background: #fff7ed; color: #c2410c;">🚒 Fire Rescue</span>`;
+    }
+    return `<span class="dept-pill-badge" style="border-color: #e2e8f0; background: #f8fafc; color: #475569;">🏛️ Municipal</span>`;
+  }
 
   async function loadAdminDashboard() {
     allAdminComplaints = await api.getComplaints();
 
-    // Stats count active non-rejected complaints
+    // Active complaints (strictly excluding rejected)
     const nonRejected = allAdminComplaints.filter(c => !(c.status || "").toLowerCase().includes("reject"));
-    document.getElementById("statTotal").textContent = nonRejected.length;
-    document.getElementById("statCritical").textContent = nonRejected.filter(c => (c.priority || "").toUpperCase() === "CRITICAL").length;
-    document.getElementById("statInProgress").textContent = nonRejected.filter(c => (c.status || "").toLowerCase().includes("progress") || (c.status || "").toLowerCase().includes("assign")).length;
-    document.getElementById("statResolved").textContent = nonRejected.filter(c => (c.status || "").toLowerCase().includes("resolve")).length;
 
-    applyFilters();
+    // 1. Update KPI Card Stat Numbers
+    const totalEl = document.getElementById("statTotal");
+    if (totalEl) totalEl.textContent = nonRejected.length;
+
+    const critCount = nonRejected.filter(c => (c.priority || "").toUpperCase() === "CRITICAL").length;
+    const critEl = document.getElementById("statCritical");
+    if (critEl) critEl.textContent = critCount;
+
+    const progCount = nonRejected.filter(c => {
+      const s = (c.status || "").toLowerCase();
+      return s.includes("progress") || s.includes("assign");
+    }).length;
+    const progEl = document.getElementById("statProgress");
+    if (progEl) progEl.textContent = progCount;
+
+    const resCount = nonRejected.filter(c => (c.status || "").toLowerCase().includes("resolve")).length;
+    const resEl = document.getElementById("statResolved");
+    if (resEl) resEl.textContent = resCount;
+
+    // 2. Update Segmented Pill Counts
+    const highCount = nonRejected.filter(c => (c.priority || "").toUpperCase() === "HIGH").length;
+    const pendCount = nonRejected.filter(c => {
+      const s = (c.status || "").toLowerCase();
+      return s.includes("pending") || s.includes("submitted");
+    }).length;
+
+    const pAll = document.getElementById("pillCountAll");
+    if (pAll) pAll.textContent = nonRejected.length;
+    const pCrit = document.getElementById("pillCountCritical");
+    if (pCrit) pCrit.textContent = critCount;
+    const pHigh = document.getElementById("pillCountHigh");
+    if (pHigh) pHigh.textContent = highCount;
+    const pPend = document.getElementById("pillCountPending");
+    if (pPend) pPend.textContent = pendCount;
+    const pProg = document.getElementById("pillCountProgress");
+    if (pProg) pProg.textContent = progCount;
+    const pRes = document.getElementById("pillCountResolved");
+    if (pRes) pRes.textContent = resCount;
+
+    // 3. Apply Filters and Render
+    applyAdminFilters();
   }
 
-  const searchFilter = document.getElementById("searchFilter");
-  const statusFilter = document.getElementById("statusFilter");
-  const priorityFilter = document.getElementById("priorityFilter");
-  const validityFilter = document.getElementById("validityFilter");
+  function applyAdminFilters() {
+    const q = (document.getElementById("adminSearchInput")?.value || "").toLowerCase().trim();
+    const dept = document.getElementById("adminFilterDept")?.value || "";
+    const sortOrder = document.getElementById("adminSortOrder")?.value || "urgency";
 
-  function applyFilters() {
-    const q = (searchFilter?.value || "").toLowerCase();
-    const s = statusFilter?.value || "";
-    const p = priorityFilter?.value || "";
-    const v = validityFilter ? validityFilter.value : "";
+    // Non-rejected list
+    let filtered = allAdminComplaints.filter(c => !(c.status || "").toLowerCase().includes("reject"));
 
-    const filtered = allAdminComplaints.filter(c => {
-      const cStatus = (c.status || "Pending Review").toLowerCase();
-      // Requirement: Rejected complaint should NOT display on dashboard
-      if (cStatus.includes("reject")) {
-        return false;
-      }
+    // 1. Apply Segmented Pill Filter
+    if (currentAdminFilterPill === "critical") {
+      filtered = filtered.filter(c => (c.priority || "").toUpperCase() === "CRITICAL");
+    } else if (currentAdminFilterPill === "high") {
+      filtered = filtered.filter(c => (c.priority || "").toUpperCase() === "HIGH");
+    } else if (currentAdminFilterPill === "pending") {
+      filtered = filtered.filter(c => {
+        const s = (c.status || "").toLowerCase();
+        return s.includes("pending") || s.includes("submitted");
+      });
+    } else if (currentAdminFilterPill === "progress") {
+      filtered = filtered.filter(c => {
+        const s = (c.status || "").toLowerCase();
+        return s.includes("progress") || s.includes("assign");
+      });
+    } else if (currentAdminFilterPill === "resolved") {
+      filtered = filtered.filter(c => (c.status || "").toLowerCase().includes("resolve"));
+    }
 
-      const matchQ = !q || c.uid.toLowerCase().includes(q) || (c.complaint || "").toLowerCase().includes(q) || (c.name || "").toLowerCase().includes(q);
-      let matchS = true;
-      if (s) {
-        if (s === "Pending Review") {
-          matchS = cStatus.includes("pending") || cStatus.includes("submitted");
-        } else {
-          matchS = cStatus.includes(s.toLowerCase());
-        }
-      }
-      const matchP = !p || (c.priority || "").toUpperCase() === p.toUpperCase();
-      const matchV = !v || c.validity === v;
-      return matchQ && matchS && matchP && matchV;
-    });
+    // 2. Department Filter
+    if (dept) {
+      filtered = filtered.filter(c => {
+        const cDept = c.department || c.triage_result?.recommended_department || "";
+        return cDept.toLowerCase().includes(dept.toLowerCase());
+      });
+    }
+
+    // 3. Search Query Filter
+    if (q) {
+      filtered = filtered.filter(c => {
+        return (c.uid || "").toLowerCase().includes(q) ||
+               (c.name || "").toLowerCase().includes(q) ||
+               (c.address || "").toLowerCase().includes(q) ||
+               (c.complaint || "").toLowerCase().includes(q) ||
+               (c.department || "").toLowerCase().includes(q);
+      });
+    }
+
+    // 4. Sort Order
+    if (sortOrder === "urgency") {
+      const pWeights = { "CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1 };
+      filtered.sort((a, b) => {
+        const wa = pWeights[(a.priority || "MEDIUM").toUpperCase()] || 2;
+        const wb = pWeights[(b.priority || "MEDIUM").toUpperCase()] || 2;
+        if (wb !== wa) return wb - wa;
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+    } else if (sortOrder === "newest") {
+      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    } else if (sortOrder === "oldest") {
+      filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    }
+
+    // Update queue count badge
+    const queueCountEl = document.getElementById("adminQueueCount");
+    if (queueCountEl) {
+      queueCountEl.textContent = `${filtered.length} Incident${filtered.length === 1 ? '' : 's'}`;
+    }
 
     renderAdminTable(filtered);
   }
 
-  searchFilter?.addEventListener("input", applyFilters);
-  statusFilter?.addEventListener("change", applyFilters);
-  priorityFilter?.addEventListener("change", applyFilters);
-  if (validityFilter) validityFilter.addEventListener("change", applyFilters);
+  // Bind Admin UI Filter Controls
+  document.addEventListener("DOMContentLoaded", () => {
+    // 1. Segmented Filter Pills
+    const pillGroup = document.getElementById("adminFilterPillGroup");
+    if (pillGroup) {
+      pillGroup.querySelectorAll(".admin-pill-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          pillGroup.querySelectorAll(".admin-pill-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentAdminFilterPill = btn.dataset.filter || "all";
+          applyAdminFilters();
+        });
+      });
+    }
+
+    // 2. Search Box with Instant Debounce and Clear Button
+    const searchInput = document.getElementById("adminSearchInput");
+    const clearBtn = document.getElementById("adminSearchClearBtn");
+    let searchDebounce = null;
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        if (clearBtn) clearBtn.style.display = searchInput.value ? "inline" : "none";
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(applyAdminFilters, 120);
+      });
+    }
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        if (searchInput) searchInput.value = "";
+        clearBtn.style.display = "none";
+        applyAdminFilters();
+      });
+    }
+
+    // 3. Dropdowns
+    const deptSelect = document.getElementById("adminFilterDept");
+    if (deptSelect) deptSelect.addEventListener("change", applyAdminFilters);
+
+    const sortSelect = document.getElementById("adminSortOrder");
+    if (sortSelect) sortSelect.addEventListener("change", applyAdminFilters);
+
+    // 4. Refresh Button
+    const refreshBtn = document.getElementById("refreshAdminBtn");
+    if (refreshBtn) {
+      refreshBtn.addEventListener("click", () => {
+        refreshBtn.textContent = "🔄 Syncing...";
+        loadAdminDashboard().finally(() => {
+          setTimeout(() => { refreshBtn.textContent = "🔄 Live Sync"; }, 500);
+        });
+      });
+    }
+
+    // 5. CSV Export
+    const exportCsvBtn = document.getElementById("exportAdminCsvBtn");
+    if (exportCsvBtn) {
+      exportCsvBtn.addEventListener("click", exportAdminComplaintsCsv);
+    }
+  });
+
+  function exportAdminComplaintsCsv() {
+    const nonRejected = allAdminComplaints.filter(c => !(c.status || "").toLowerCase().includes("reject"));
+    if (!nonRejected.length) {
+      alert("No active grievances to export.");
+      return;
+    }
+
+    const headers = ["Ticket UID", "Citizen Name", "Phone", "Priority", "Status", "Department", "Address", "Complaint Summary", "Created At"];
+    const rows = nonRejected.map(c => [
+      `"${c.uid || ''}"`,
+      `"${(c.name || '').replace(/"/g, '""')}"`,
+      `"${c.phone || ''}"`,
+      `"${c.priority || 'MEDIUM'}"`,
+      `"${c.status || 'Pending'}"`,
+      `"${(c.department || '').replace(/"/g, '""')}"`,
+      `"${(c.address || '').replace(/"/g, '""')}"`,
+      `"${(c.complaint || '').replace(/"/g, '""').substring(0, 150)}"`,
+      `"${c.created_at || ''}"`
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Municipal_Triage_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   // Global Toggle Function for Complaint Snippet Expansion on Click
   window.toggleComplaintExpand = function(uid) {
@@ -1600,12 +1808,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function renderAdminTable(list) {
     const tbody = document.getElementById("complaintsTableBody");
+    if (!tbody) return;
 
     // Strictly enforce exclusion of rejected complaints
     const activeList = (list || []).filter(c => !(c.status || "").toLowerCase().includes("reject"));
 
     if (!activeList || activeList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2.5rem; color: var(--text-muted); font-size: 0.9rem;">No complaints match the filter.</td></tr>`;
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 3rem 1rem; color: #64748b; font-size: 0.88rem;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
+            <div style="font-weight: 700; color: #1e293b; font-size: 1rem;">No grievances match current filter</div>
+            <div style="margin-top: 0.25rem;">Try adjusting search keywords, selected department, or status pills.</div>
+          </td>
+        </tr>`;
       return;
     }
 
@@ -1624,68 +1840,134 @@ document.addEventListener("DOMContentLoaded", async () => {
         normStatus = "RESOLVED";
         statusBadgeClass = "resolved";
       } else {
-        normStatus = "PENDING";
+        normStatus = "PENDING REVIEW";
         statusBadgeClass = "pending";
       }
 
-      const isPending = normStatus === "PENDING";
+      const isPending = normStatus.includes("PENDING");
+      const isResolved = normStatus.includes("RESOLVED");
 
       // Formatted ID (e.g. #1024 or #CB-5F2E06)
       const cleanId = c.uid ? (c.uid.startsWith("#") ? c.uid : `#${c.uid}`) : "#0000";
 
       // Truncated complaint text for initial view (clicks to toggle full text)
       const rawText = c.complaint || "";
-      const isLong = rawText.length > 55;
-      const truncatedText = isLong ? rawText.substring(0, 52) + "..." : rawText;
+      const isLong = rawText.length > 60;
+      const truncatedText = isLong ? rawText.substring(0, 58) + "..." : rawText;
 
-      // Priority: just mention only priorities without any reasons (CRITICAL, HIGH, MEDIUM, LOW)
+      // Priority Urgency Badge & SLA
       const cleanPriority = (c.priority || "MEDIUM").toUpperCase();
-      const priorityDisplay = `<span class="triage-badge badge-${cleanPriority.toLowerCase()}">${cleanPriority}</span>`;
+      let priorityDisplay = "";
+      let slaDisplay = "";
 
-      // Action: Clean [REVIEW] or [VIEW] button
-      const actionButton = isPending
-        ? `<button type="button" class="btn-action-primary" onclick="adminViewDetail('${c.uid}')">[REVIEW]</button>`
-        : `<button type="button" class="btn-action-secondary" onclick="adminViewDetail('${c.uid}')">[VIEW]</button>`;
+      if (cleanPriority === "CRITICAL") {
+        priorityDisplay = `<span class="triage-badge badge-critical" style="font-weight: 800;">🚨 CRITICAL</span>`;
+        slaDisplay = `<div class="sla-chip-critical">⚡ &lt; 30m SLA</div>`;
+      } else if (cleanPriority === "HIGH") {
+        priorityDisplay = `<span class="triage-badge badge-high" style="font-weight: 800;">🟠 HIGH</span>`;
+        slaDisplay = `<div class="sla-chip-normal">⏱️ 4h SLA Target</div>`;
+      } else if (cleanPriority === "MEDIUM") {
+        priorityDisplay = `<span class="triage-badge badge-medium">🟡 MEDIUM</span>`;
+        slaDisplay = `<div class="sla-chip-normal">⏱️ 24h SLA Target</div>`;
+      } else {
+        priorityDisplay = `<span class="triage-badge badge-low">🟢 LOW</span>`;
+        slaDisplay = `<div class="sla-chip-normal">⏱️ 48h SLA Target</div>`;
+      }
+
+      // Department Badge
+      const deptDisplay = getDepartmentBadge(c.department || c.triage_result?.recommended_department);
+
+      // Relative timestamp
+      const relTime = formatRelativeTime(c.created_at);
+
+      // Media attachments count
+      const mediaCount = (c.images?.length || 0) + (c.videos?.length || 0);
+
+      // Action Buttons
+      let actionButtons = "";
+      if (isPending) {
+        actionButtons = `
+          <div class="admin-action-group">
+            <button type="button" class="btn-admin-action btn-admin-approve" onclick="adminApprove('${c.uid}')" title="1-Click Approve & Assign to ${c.department || 'Recommended Dept'}">
+              ⚡ Approve
+            </button>
+            <button type="button" class="btn-admin-action btn-admin-reject" onclick="adminReject('${c.uid}')" title="Reject Complaint with Reason">
+              ❌
+            </button>
+            <button type="button" class="btn-admin-action btn-admin-dossier" onclick="adminViewDetail('${c.uid}')" title="Open Full Executive Dossier">
+              🔍 Dossier
+            </button>
+          </div>`;
+      } else if (isResolved) {
+        actionButtons = `
+          <div class="admin-action-group">
+            <button type="button" class="btn-admin-action btn-admin-dossier" onclick="adminViewDetail('${c.uid}')" title="View Verification Dossier">
+              ✅ Dossier
+            </button>
+          </div>`;
+      } else {
+        // Assigned or In Progress
+        actionButtons = `
+          <div class="admin-action-group">
+            <button type="button" class="btn-admin-action btn-admin-reassign" onclick="adminOpenAssignModal('${c.uid}')" title="Reassign Officer or Department">
+              👷 Assign
+            </button>
+            <button type="button" class="btn-admin-action btn-admin-dossier" onclick="adminViewDetail('${c.uid}')" title="Open Full Executive Dossier">
+              🔍 Dossier
+            </button>
+          </div>`;
+      }
 
       return `
         <tr>
-          <!-- 1. ID -->
-          <td style="vertical-align: middle;">
-            <div style="font-family: var(--font-mono); font-weight: 700; color: #1e293b; font-size: 0.88rem;">${cleanId}</div>
-            <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">
-              ${new Date(c.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+          <!-- 1. CASE REF / TIME -->
+          <td>
+            <div class="ticket-meta-block">
+              <span class="ticket-uid-badge">${cleanId}</span>
+              <span class="ticket-time-chip">🕒 ${relTime}</span>
+              <span class="ticket-channel-chip">Citizen Portal</span>
             </div>
           </td>
 
-          <!-- 2. COMPLAINT (Clickable to reveal full complaint without separate expand button) -->
-          <td style="vertical-align: middle;">
-            <div class="complaint-text-clickable" onclick="toggleComplaintExpand('${c.uid}')" style="cursor: pointer;" title="Click text to show/hide full complaint">
-              <span id="complaint-short-${c.uid}" style="font-weight: 600; color: #0f172a; font-size: 0.88rem; line-height: 1.45;">
-                ${truncatedText}
-              </span>
-              ${isLong ? `<span id="complaint-full-${c.uid}" style="display: none; font-weight: 600; color: #0f172a; font-size: 0.88rem; line-height: 1.45; white-space: pre-wrap;">${rawText}</span>` : ''}
-            </div>
-            <div class="complaint-meta-row">
-              <span>📍 ${c.address || 'Location recorded'}</span>
-              ${((c.images?.length || 0) + (c.videos?.length || 0) > 0) ? `<span style="background: #f1f5f9; color: #475569; padding: 1px 6px; border-radius: 4px; font-weight: 600; font-size: 0.68rem; border: 1px solid #e2e8f0;">📷 ${(c.images?.length || 0) + (c.videos?.length || 0)} Evidence</span>` : ''}
+          <!-- 2. INCIDENT & CITIZEN -->
+          <td>
+            <div class="incident-cell">
+              <div class="citizen-name-badge">${c.name || 'Citizen'}</div>
+              <div class="complaint-preview-text" onclick="toggleComplaintExpand('${c.uid}')" title="Click to expand/collapse full grievance statement">
+                <span id="complaint-short-${c.uid}">${truncatedText}</span>
+                ${isLong ? `<span id="complaint-full-${c.uid}" style="display: none; white-space: pre-wrap;">${rawText}</span>` : ''}
+              </div>
+              <div class="incident-meta-chips">
+                <span class="ticket-location-pill" title="${c.address || 'Geo-located'}">📍 ${c.address || 'Geo-located Incident'}</span>
+                ${mediaCount > 0 ? `<span class="evidence-count-pill">📷 ${mediaCount} Evidence</span>` : ''}
+              </div>
             </div>
           </td>
 
-          <!-- 3. PRIORITY (Only priorities without reasons) -->
-          <td style="vertical-align: middle;">
+          <!-- 3. DEPARTMENT -->
+          <td>
+            ${deptDisplay}
+            <div style="font-size: 0.68rem; color: #64748b; margin-top: 4px;">
+              ${c.assigned_officer ? `👮 ${c.assigned_officer}` : 'Pending Crew Assignment'}
+            </div>
+          </td>
+
+          <!-- 4. PRIORITY & SLA -->
+          <td>
             ${priorityDisplay}
+            ${slaDisplay}
           </td>
 
-          <!-- 4. STATUS (Clean Enterprise Pill with Dot) -->
-          <td style="vertical-align: middle;">
+          <!-- 5. STATUS -->
+          <td>
             <span class="status-indicator-pill status-${statusBadgeClass}">
               <span class="dot"></span> ${normStatus}
             </span>
           </td>
 
-          <!-- 5. ACTION -->
-          <td style="vertical-align: middle; text-align: center;">
-            ${actionButton}
+          <!-- 6. ACTIONS -->
+          <td style="text-align: center;">
+            ${actionButtons}
           </td>
         </tr>
       `;
@@ -1751,7 +2033,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     showToast(`AI Auto-Assigned ${uid} to ${department}`);
     loadAdminDashboard();
   };
-
   // View Details Modal
   const detailModal = document.getElementById("detailModal");
   window.adminViewDetail = function(uid) {
@@ -2043,10 +2324,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         voiceActiveLangLabel.textContent = "Auto-Translates to English";
       } else {
         const langNames = {
-          "hi-IN": "Hindi -> English",
-          "ta-IN": "Tamil -> English",
-          "te-IN": "Telugu -> English",
-          "kn-IN": "Kannada -> English",
+          "te-IN": "Telugu -> English Meaning",
+          "hi-IN": "Hindi -> English Meaning",
+          "ta-IN": "Tamil -> English Meaning",
+          "kn-IN": "Kannada -> English Meaning",
           "en-IN": "English Dictation"
         };
         voiceActiveLangLabel.textContent = langNames[val] || "Auto-Translates to English";
@@ -2165,20 +2446,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Auto-translate non-English characters guard (e.g. if Hindi, Tamil, Telugu is entered or left in input)
+  // Auto-translate non-English characters guard (Telugu, Hindi, Tamil, Kannada & Romanized Telugu)
   async function autoTranslateIfNonEnglish() {
     if (isRecordingVoice) return;
     const val = complaintInput.value.trim();
-    // Check if text contains non-ASCII Unicode characters (Devanagari, Tamil, Telugu, Kannada, etc.)
-    if (/[^\u0000-\u007F]/.test(val) && val.length >= 2) {
+    // Check if text contains non-ASCII Unicode characters (Telugu, Hindi, Tamil, Kannada) OR Romanized Telugu keywords
+    const hasNonAscii = /[^\u0000-\u007F]/.test(val);
+    const hasTeluguRomanized = /\b(gunta|guntalu|neellu|neeru|theega|theegalu|pagilipoindi|durvaasana|kampu|dhomalu|perukupoindi|velagadam|velagatledu|cheekati|ravadam ledu|ravatledu|chachina|dongathanam|mantalu|kaluva|murugu|manhole open)\b/i.test(val);
+
+    if ((hasNonAscii || hasTeluguRomanized) && val.length >= 2) {
       try {
         const res = await api.translateText(val, "en");
         if (res && (res.meaning_text || res.translated_text)) {
           const translated = (res.meaning_text || res.translated_text).trim();
           complaintInput.value = translated;
           if (translationNotice && translationNoticeText) {
-            const langDisplay = (res.detected_lang || "AUTO").toUpperCase();
-            translationNoticeText.innerHTML = `<strong>✨ Translated to English [${langDisplay}]:</strong> "${translated}"`;
+            const langDisplay = (res.detected_lang || "TELUGU").toUpperCase();
+            translationNoticeText.innerHTML = `<strong>✨ Translated to English Meaning [${langDisplay}]:</strong> "${translated}"`;
             translationNotice.style.display = "inline-flex";
           }
           evaluateTriage();
@@ -2204,7 +2488,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const meaning = (res && res.meaning_text) ? res.meaning_text.trim() : ((res && res.translated_text) ? res.translated_text.trim() : currentVal);
         complaintInput.value = meaning;
         if (translationNotice && translationNoticeText) {
-          translationNoticeText.innerHTML = `<strong>✨ Translated to English:</strong> "${meaning}"`;
+          const langDisplay = (res && res.detected_lang ? res.detected_lang : "TELUGU").toUpperCase();
+          translationNoticeText.innerHTML = `<strong>✨ Translated to English Meaning [${langDisplay}]:</strong> "${meaning}"`;
           translationNotice.style.display = "inline-flex";
         }
         showToast("✨ Translated to formal municipal meaning!");
@@ -2229,7 +2514,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     latestCapturedSpeech = "";
 
     const selectedLang = (voiceLangSelect ? voiceLangSelect.value : "auto");
-    const speechLangCode = selectedLang === "auto" ? "hi-IN" : selectedLang;
+    const speechLangCode = selectedLang === "auto" ? "te-IN" : selectedLang;
 
     // 1. Request microphone stream (KEEP ALIVE throughout recording)
     try {
@@ -2361,10 +2646,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     complaintInput.classList.add("voice-transcribing");
 
     const sampleDictations = {
-      "auto": "सड़क पर गहरा गड्ढा है जिससे गाड़ियाँ गिर रही हैं",
+      "auto": "రోడ్డు మీద పెద్ద గుంత పడింది బైకులు పడిపోతున్నాయి",
+      "te-IN": "మంచినీటి పైపు పగిలిపోయి నీరంతా వృధాగా రోడ్డుపై పోతోంది",
       "hi-IN": "सड़क पर गहरा गड्ढा है और पानी भरा हुआ है, कई लोग गिर चुके हैं",
       "ta-IN": "தெரு விளக்கு எரியவில்லை, இருட்டாக இருப்பதால் விபத்துகள் நடக்கின்றன",
-      "te-IN": "మంచినీటి పైపు పగిలిపోయి నీరంతా వృధాగా రోడ్డుపై పోతోంది",
       "kn-IN": "ರಸ್ತೆಯಲ್ಲಿ ದೊಡ್ಡ ಗುಂಡಿ ಬಿದ್ದಿದೆ ಅಪಘಾತಗಳು ಆಗುತ್ತಿವೆ",
       "en-IN": "High voltage wire snapped and hanging dangerously near school entrance"
     };
@@ -2412,10 +2697,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Base Map Layer Providers (100% Free, Zero API Key Required, Zero Watermarks, High Performance)
   const baseTileLayers = {
-    streets: L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", {
+    streets: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
       maxZoom: 19,
-      subdomains: "abc",
-      attribution: "© OpenStreetMap contributors, Humanitarian OpenStreetMap Team"
+      attribution: "Tiles © Esri — World Street Map"
+    }),
+    google: L.tileLayer("https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+      maxZoom: 20,
+      attribution: "Map data © Google"
     }),
     satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
       maxZoom: 19,

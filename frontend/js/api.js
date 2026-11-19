@@ -847,69 +847,183 @@ class CityBrainAPI {
     throw new Error("Complaint not found");
   }
 
-  _enhanceSemanticMeaning(literal) {
-    if (!literal) return "";
-    const t = literal.toLowerCase().trim();
+  _enhanceSemanticMeaning(literal, rawOrig = "") {
+    const textPrimary = (literal || "").trim();
+    const textOrig = (rawOrig || "").trim();
+    if (!textPrimary && !textOrig) return "";
+
+    const combined = `${textPrimary} ${textOrig}`.toLowerCase().trim();
+
+    // 1. CORE CIVIC ISSUE IDENTIFICATION
     let defect = "";
-    if (/\b(pothole|potholes|crater|craters|road damage|broken road|sinkhole|cave[- ]?in)\b/.test(t)) {
-      defect = /\b(sinkhole|cave)\b/.test(t)
-        ? "Severe roadway structural collapse with deep sinkhole crater"
-        : "Major road infrastructure degradation with deep pothole crater";
-    } else if (/\b(live wire|hanging wire|open cable|electric wire|power line|sparking wire|snapped wire|power cut|transformer)\b/.test(t)) {
-      if (t.includes("transformer")) defect = "Municipal power grid transformer malfunction and electrical fault";
-      else if (/\b(wire|cable|line)\b/.test(t)) defect = "Exposed high-voltage electrical power cable snapped and fallen";
-      else defect = "Severe electrical grid failure and localized power outage";
-    } else if (/\b(pipe|pipeline|leak|burst|water line|drinking water)\b/.test(t)) {
-      if (/\b(burst|heavy|river)\b/.test(t)) defect = "Pressurized municipal water distribution pipeline rupture and major inundation";
-      else if (/\b(drinking|dirty|contaminated|muddy)\b/.test(t)) defect = "Severe municipal drinking water contamination with turbid supply";
-      else defect = "Municipal water pipeline leak and continuous water wastage";
-    } else if (/\b(drain|drainage|sewer|gutter|overflow|sewerage|manhole)\b/.test(t)) {
-      if (t.includes("manhole")) defect = "Dangerous uncovered deep municipal sewer manhole on public thoroughfare";
-      else defect = "Clogged municipal drainage network causing foul sewage overflow";
-    } else if (/\b(garbage|trash|waste|dump|stench|smell|dead animal|carcass)\b/.test(t)) {
-      if (/\b(animal|carcass)\b/.test(t)) defect = "Decomposing animal carcass on public pathway posing acute biohazard";
-      else defect = "Heavy uncollected solid waste accumulation emitting severe foul stench";
-    } else if (/\b(street light|street lights|light|dark|bulb)\b/.test(t)) {
-      defect = "Non-functional municipal street lighting causing dark, unsafe road corridor";
-    } else if (/\b(fire|blaze|flames|smoke|explosion|gas leak)\b/.test(t)) {
-      defect = "Active fire and hazardous emergency situation requiring urgent suppression";
+    let deptAction = "";
+
+    const isWaterTerm =
+      /\b(water|pipe|pipeline|leak\w*|burst|taps?|borewell|water supply|drinking water|potable water)\b/.test(combined) ||
+      /\b(neellu|neeru|manchi neellu|manchineellu|thaguneeru|taguneeru|pagilipoindi|pagilipoyindi|leakej|vrudha|ravatledu|ravadam ledu|ravadamledhu|raledu|muriki neellu|kalushitha)\b/.test(combined) ||
+      /(నీళ్లు|నీరు|మంచినీళ్లు|మంచినీటి|తాగునీరు|పైపు|పైప్‌లైన్|పగిలిపోయింది|లీకేజ్|వృధా|రావడం లేదు|రావట్లేదు|మురికి నీళ్లు|కలుషిత)/.test(combined);
+
+    const isDrainageTerm =
+      /\b(drain|drainage|sewer|sewerage|gutter|gutters|manhole|sewage|foul water|sludge)\b/.test(combined) ||
+      /\b(murugu|kaaluva|kaluva|muruguneeru|kampu|durvaasana|mootha ledu|open manhole)\b/.test(combined) ||
+      /(మురుగు|కాలువ|డ్రైనేజీ|డ్రైనేజ్|మ్యాన్‌హోల్|మ్యాన్ హోల్|మూత లేదు|కంపు|మురుగునీరు)/.test(combined);
+
+    const isPotholeTerm = (
+      /\b(potholes?|craters?|sinkholes?|cave[- ]?in|caved in|road collapse|cratered road)\b/.test(combined) ||
+      /\b(gunta|guntalu|gothulu|guntalo)\b/.test(combined) ||
+      /(గుంత|గుంతలు|గోతులు)/.test(combined) ||
+      ((/\b(road|roads|rahadari)\b/.test(combined) || combined.includes("రోడ్డు") || combined.includes("రహదారి")) &&
+       (/\b(damage|damaged|broken|destroyed|collapse|collapsed|paadaipoindi|padaipoyindi|debbathindi|guntalu paddayi)\b/.test(combined) ||
+        /(పాడైపోయింది|దెబ్బతింది|కూలిపోయింది)/.test(combined)))
+    ) && !(isWaterTerm && !/\b(potholes?|gunta|గుంత)\b/.test(combined));
+
+    const isElectricTerm =
+      /\b(electric\w*|power|transformer|live wire|hanging wire|open cable|high voltage|sparking|snapped wire|power cut|street lights?|streetlights?|bulb|blackout)\b/.test(combined) ||
+      /\b(current|carant|vidyuth|theega|theegalu|wire|thegipoyindi|tegindi|transformer|lightlu|street light|velagadam ledu|velagatledu|cheekati|cheekatiga|power cut|current poindi|current ledu)\b/.test(combined) ||
+      /(కరెంట్|విద్యుత్|తీగ|తీగలు|వైర్|ట్రాన్స్‌ఫార్మర్|లైట్లు|స్ట్రీట్ లైట్లు|వెలగడం లేదు|వెలగట్లేదు|చీకటి|పవర్ కట్|కరెంట్ పోయింది|స్పార్క్స్)/.test(combined);
+
+    const isGarbageTerm =
+      /\b(garbage|trash|waste|dump|dumps|dustbin|dustbins|stench|smell|dead animal|carcass|sanitation|debris)\b/.test(combined) ||
+      /\b(chetha|chethakuppalu|kuppalu|perukupoindi|durvaasana|vasana|dhomalu|chachina janthuvu|clean cheyaledu|theeyatledu)\b/.test(combined) ||
+      /(చెత్త|చెత్తకుప్పలు|కుప్పలు|పేరుకుపోయింది|దుర్వాసన|వాసన|దోమలు|చచ్చిన జంతువు|కళేబరం)/.test(combined);
+
+    const isFireTerm =
+      /\b(fire|blaze|flames?|smoke|explosion|blast|gas leak|cylinder blast)\b/.test(combined) ||
+      /\b(mantalu|agni|cylinder blast|koolipoindi)\b/.test(combined) ||
+      /(మంటలు|అగ్ని|అగ్నిప్రమాదం|గ్యాస్ లీక్|సిలిండర్)/.test(combined);
+
+    const isPoliceTerm =
+      /\b(theft|burglary|robbery|assault|fight|violence|harass|stolen|weapon|knife|threat|rowdies)\b/.test(combined) ||
+      /\b(dongathanam|godava|daadi|bhayam|rowdielu|bedirimpu)\b/.test(combined) ||
+      /(దొంగతనం|గొడవ|దాడి|భయం|రౌడీలు|బెదిరింపు)/.test(combined);
+
+    // A. FIRE
+    if (isFireTerm) {
+      defect = "Active fire outbreak and hazardous disaster emergency";
+      deptAction = "Urgent Fire & Rescue Services deployment and emergency suppression required";
+    }
+    // B. ELECTRICITY & LIGHTING
+    else if (isElectricTerm) {
+      if (
+        /\b(street lights?|streetlights?|bulb|lights?|lightlu)\b/.test(combined) &&
+        (/\b(velagadam ledu|velagatledu|not glowing|not working|off|dark|no lights|broken bulb)\b/.test(combined) ||
+         combined.includes("వెలగడం లేదు") || combined.includes("వెలగట్లేదు") || combined.includes("చీకటి") || combined.includes("cheekati"))
+      ) {
+        defect = "Non-functional municipal street lighting network causing dark, hazardous road corridor";
+        deptAction = "Urgent municipal electrical maintenance and street light restoration required";
+      } else if (/\b(transformer)\b/.test(combined) || combined.includes("ట్రాన్స్‌ఫార్మర్")) {
+        defect = "Municipal power grid transformer malfunction and electrical breakdown";
+        deptAction = "Urgent Electricity Board technical intervention and transformer replacement required";
+      } else if (/\b(wire|theega|cable|line|spark|sparks|live wire|snapped)\b/.test(combined) || combined.includes("తీగ") || combined.includes("స్పార్క్స్")) {
+        defect = "Exposed live high-voltage electrical power cable snapped and fallen on public roadway, posing lethal electrocution danger";
+        deptAction = "Immediate Electricity Board emergency power shutdown and hazardous cable clearance required";
+      } else {
+        defect = "Severe municipal electrical grid failure causing localized blackout and power outage";
+        deptAction = "Urgent Electricity Board line restoration and power grid stabilization required";
+      }
+    }
+    // C. ROADS
+    else if (isPotholeTerm) {
+      if (/\b(sinkhole|cave[- ]?in|structural collapse)\b/.test(combined) || combined.includes("కూలిపోయింది")) {
+        defect = "Severe roadway structural collapse with hazardous deep sinkhole crater";
+        deptAction = "Urgent PWD emergency structural barricading, road rebuild, and asphalt paving required";
+      } else {
+        defect = "Major roadway deterioration with dangerous deep potholes and craters";
+        deptAction = "Urgent municipal road repair, safety barricading, and asphalt resurfacing required";
+      }
+    }
+    // D. DRAINAGE
+    else if (isDrainageTerm) {
+      if (/\b(manhole|mootha ledu|open manhole|deep manhole|uncovered)\b/.test(combined) || combined.includes("మ్యాన్‌హోల్") || combined.includes("మూత లేదు")) {
+        defect = "Dangerous uncovered municipal sewer manhole on public thoroughfare posing fatal fall hazard";
+        deptAction = "Immediate municipal manhole replacement, heavy-duty safety covering, and hazard perimeter cordoning required";
+      } else {
+        defect = "Clogged municipal drainage network causing foul raw sewage overflow and hazardous standing wastewater";
+        deptAction = "Urgent municipal drainage desilting, sewer clearance, and sanitization required";
+      }
+    }
+    // E. WATER
+    else if (isWaterTerm) {
+      if (/\b(burst|pagilipoindi|rupture|broken pipe|pipe broke|pipe broken|leak|waste|vrudha|flooding|river|flowing)\b/.test(combined) || combined.includes("పగిలిపోయింది") || combined.includes("వృధా")) {
+        defect = "Pressurized municipal drinking water distribution pipeline rupture causing massive potable water wastage";
+        deptAction = "Urgent Water Supply & Sewerage Board emergency pipeline repair and valve shutdown required";
+      } else if (/\b(ravadam ledu|ravatledu|no water|water is not coming|supply cut|scarcity|shortage|dry|outage)\b/.test(combined) || combined.includes("రావడం లేదు") || combined.includes("రావట్లేదు")) {
+        defect = "Complete outage and severe disruption of municipal drinking water supply to the locality";
+        deptAction = "Urgent Water Board municipal supply line restoration and emergency water tanker deployment required";
+      } else if (/\b(dirty|muddy|contaminated|muriki|smell|foul|yellow|turbid)\b/.test(combined) || combined.includes("మురికి") || combined.includes("కలుషిత")) {
+        defect = "Severe municipal drinking water contamination with turbid and unsafe domestic water supply";
+        deptAction = "Urgent Water Quality Board pipeline flushing, contamination isolation, and sample testing required";
+      } else {
+        defect = "Municipal drinking water distribution infrastructure defect and continuous leakage";
+        deptAction = "Urgent Water Supply & Sewerage Board inspection and maintenance required";
+      }
+    }
+    // F. SANITATION
+    else if (isGarbageTerm) {
+      if (/\b(animal|carcass|janthuvu|kukka|dog|dead)\b/.test(combined) || combined.includes("చచ్చిన") || combined.includes("జంతువు") || combined.includes("కళేబరం")) {
+        defect = "Decomposing animal carcass on public pathway posing acute biohazard and public health emergency";
+        deptAction = "Immediate public health and veterinary sanitation dispatch for safe biohazard removal required";
+      } else {
+        defect = "Heavy accumulation of uncollected municipal solid waste emitting severe foul stench and attracting stray animals";
+        deptAction = "Urgent municipal solid waste clearance, sanitation compactor dispatch, and chemical disinfection required";
+      }
+    }
+    // G. POLICE
+    else if (isPoliceTerm) {
+      defect = "Active public safety disturbance and threat to community security";
+      deptAction = "Immediate Police and Law Enforcement patrol dispatch required";
     } else {
-      const clean = literal.replace(/[.\s]+$/, "");
-      defect = clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "Municipal civic infrastructure defect";
+      const clean = textPrimary.replace(/[.\s]+$/, "").trim();
+      defect = clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : "Municipal civic infrastructure disrepair";
+      deptAction = "Urgent municipal inspection and corrective action required";
     }
 
+    // 2. IMPACTS
     const impacts = [];
-    if (/\b(accident|accidents|fell|falling|slip|slipped|crash|crashed|injured|injuries|damage)\b/.test(t)) {
-      impacts.push("causing active vehicular accidents and commuter injury risk");
+    if (/\b(accident|accidents|bikes?|vehicles?|motorcycle|scooter|fall|falling|fell|slip|slipped|crash|crashed|injured|injuries|damage|padipotunnaru|padipotunnayi|padipothunnaru)\b/.test(combined) || combined.includes("పడిపోతున్నారు") || combined.includes("పడిపోతున్నాయి") || combined.includes("ప్రమాదం")) {
+      impacts.push("causing active two-wheeler skids, commuter accidents, and severe injury risk");
     }
-    if (/\b(spark|sparks|shock|electrocution|sparks flying)\b/.test(t)) {
-      impacts.push("emitting hazardous electrical sparks with lethal electrocution danger");
+    if (/\b(spark|sparks|shock|electrocution|fire hazard|sparks coming)\b/.test(combined) || combined.includes("స్పార్క్స్") || combined.includes("షాక్")) {
+      impacts.push("emitting hazardous electrical sparks with imminent electrocution and fire hazard");
     }
-    if (/\b(flood|flooding|water entered|homes|houses|dwelling|inside|shop|shops)\b/.test(t)) {
-      impacts.push("inundating nearby dwellings and disrupting local access");
+    if (/\b(flood|flooding|water entered|homes|houses|dwelling|dwellings|shops|inside|illaloki|illoki)\b/.test(combined) || combined.includes("ఇళ్లలోకి")) {
+      impacts.push("inundating adjacent residential dwellings and disrupting local access");
     }
-    if (/\b(disease|diseases|smell|stench|unbearable|dogs|mosquito|dengue|malaria|hygiene|unhygienic)\b/.test(t)) {
-      impacts.push("generating vector-borne disease threats and critical unhygienic conditions");
+    if (/\b(stench|smell|foul|unbearable|mosquito|mosquitoes|dhomalu|dengue|malaria|hygiene|unhygienic|disease|kampukoduthondi|kampu)\b/.test(combined) || combined.includes("దుర్వాసన") || combined.includes("దోమలు") || combined.includes("కంపు")) {
+      impacts.push("generating unbearable foul stench, vector-borne disease breeding threats (dengue/malaria), and acute unhygienic conditions");
     }
-    if (/\b(school|children|students|kids)\b/.test(t)) {
-      impacts.push("situated in immediate proximity to school zone endangering students");
+    if (/\b(school|children|students|kids|pillalu)\b/.test(combined) || combined.includes("పిల్లలు")) {
+      impacts.push("situated in high-vulnerability school zone endangering students and pedestrians");
     }
-    if (/\b(hospital|clinic|patient|patients)\b/.test(t)) {
-      impacts.push("obstructing critical emergency access route to healthcare facility");
+    if (/\b(hospital|clinic|patient|patients|ambulance)\b/.test(combined) || combined.includes("ఆసుపత్రి")) {
+      impacts.push("obstructing critical emergency access route to healthcare facilities");
     }
-    if (/\b(traffic|block|blocked|gridlock|jam)\b/.test(t)) {
-      impacts.push("creating severe traffic gridlock across primary transit corridor");
+    if (/\b(traffic|block|blocked|gridlock|jam|traffic jam|prayaanam kastam|travel is difficult)\b/.test(combined) || combined.includes("జామ్") || combined.includes("కష్టంగా")) {
+      impacts.push("creating severe traffic gridlock and transit obstruction across the primary thoroughfare");
     }
-    if (/\b(dark|theft|unsafe|danger|women)\b/.test(t)) {
-      impacts.push("compromising night-time public transit safety");
+    if (/\b(dark|theft|unsafe|danger|women|night|night-time|cheekati|cheekatiga)\b/.test(combined) || combined.includes("చీకటి") || combined.includes("భయంగా")) {
+      impacts.push("severely compromising pedestrian and commuter safety during night hours");
     }
 
-    return impacts.length > 0 ? `${defect}, ${impacts.join(", ")}.` : `${defect}. Urgent municipal maintenance and inspection required.`;
+    let statement = defect;
+    if (impacts.length > 0) {
+      statement += ", " + impacts.join(", ");
+    }
+    if (deptAction) {
+      statement += `. ${deptAction}.`;
+    } else if (!statement.endsWith(".")) {
+      statement += ".";
+    }
+
+    return statement;
   }
 
   async translateText(text, targetLang = "en") {
     const raw = (text || "").trim();
     if (!raw) return { translated_text: "", meaning_text: "", literal_text: "", detected_lang: "en", original_text: "" };
+
+    const hasTelugu = /[\u0c00-\u0c7f]/.test(raw) || /\b(gunta|neellu|theega|pagilipoindi|chetha|kampu|velagadam)\b/i.test(raw);
+    const initialLang = hasTelugu ? "te" : "auto";
 
     // 1. Try FastAPI backend translation endpoint (which translates MEANING, not just exact words)
     if (this.isBackendOnline) {
@@ -933,8 +1047,8 @@ class CityBrainAPI {
       if (res.ok) {
         const data = await res.json();
         const literal = (data[0] || []).map(part => part[0]).filter(Boolean).join("");
-        const detected = data[2] || "auto";
-        const meaning = this._enhanceSemanticMeaning(literal);
+        const detected = (hasTelugu ? "te" : (data[2] || "auto"));
+        const meaning = this._enhanceSemanticMeaning(literal, raw);
         return {
           translated_text: meaning || literal,
           meaning_text: meaning || literal,
@@ -945,8 +1059,8 @@ class CityBrainAPI {
       }
     } catch (e) {}
 
-    const clientMeaning = this._enhanceSemanticMeaning(raw);
-    return { translated_text: clientMeaning || raw, meaning_text: clientMeaning || raw, literal_text: raw, detected_lang: "en", original_text: raw };
+    const clientMeaning = this._enhanceSemanticMeaning(raw, raw);
+    return { translated_text: clientMeaning || raw, meaning_text: clientMeaning || raw, literal_text: raw, detected_lang: initialLang, original_text: raw };
   }
 
   async getNotices() {
